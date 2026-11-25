@@ -80,11 +80,53 @@ jobs:
             gradle :app:assembleDebug :app:assembleRelease --stacktrace
           fi
 
-      - name: Prepare APK artifacts & checksums
+      - name: Prepare & Sign APK artifacts
+        id: sign_apk
+        shell: bash
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           mkdir -p release-apks
           cp app/build/outputs/apk/debug/app-debug.apk release-apks/A4-TV-Bridge-1.0.1-debug.apk
-          cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.0.1-release-unsigned.apk
+
+          if [ -n "${SIGNING_KEY_BASE64:-}" ] && [ -n "${SIGNING_KEY_ALIAS:-}" ] && [ -n "${SIGNING_STORE_PASSWORD:-}" ]; then
+            SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+            ZIPALIGN="$SDK_ROOT/build-tools/36.0.0/zipalign"
+            APKSIGNER="$SDK_ROOT/build-tools/36.0.0/apksigner"
+            [ -x "$ZIPALIGN" ] || ZIPALIGN="$(find "$SDK_ROOT/build-tools" -name zipalign -type f | sort -V | tail -n 1)"
+            [ -x "$APKSIGNER" ] || APKSIGNER="$(find "$SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+
+            KEYSTORE_PATH="$RUNNER_TEMP/a4-release.keystore"
+            ALIGNED_APK="$RUNNER_TEMP/app-release-aligned.apk"
+            trap 'rm -f "$KEYSTORE_PATH" "$ALIGNED_APK"' EXIT
+
+            printf '%s' "$SIGNING_KEY_BASE64" | tr -d '\r\n ' | base64 --decode > "$KEYSTORE_PATH"
+            export EFFECTIVE_KEY_PASSWORD="${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}"
+
+            "$ZIPALIGN" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk "$ALIGNED_APK"
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE_PATH" \
+              --ks-key-alias "$SIGNING_KEY_ALIAS" \
+              --ks-pass env:SIGNING_STORE_PASSWORD \
+              --key-pass env:EFFECTIVE_KEY_PASSWORD \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --out release-apks/A4-TV-Bridge-1.0.1-release.apk \
+              "$ALIGNED_APK"
+
+            "$APKSIGNER" verify --verbose release-apks/A4-TV-Bridge-1.0.1-release.apk
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Signing secrets not configured; packaging unsigned release APK."
+            cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.0.1-release-unsigned.apk
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
           (cd release-apks && sha256sum *.apk > SHA256SUMS.txt)
           cat release-apks/SHA256SUMS.txt
 
@@ -98,32 +140,41 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APK_SIGNED: ${{ steps.sign_apk.outputs.signed }}
         run: |
           TAG="v1.0.1"
           TITLE="A4 TV Bridge 1.0.1 (Theme & Feature Fixes)"
-          NOTES=$(cat <<'EOF'
+          if [ "$APK_SIGNED" = "true" ]; then
+            INSTALL_NOTE="> **Install note:** Download and install \`A4-TV-Bridge-1.0.1-release.apk\` on your Android phone or tablet (Android 8.0+). \`A4-TV-Bridge-1.0.1-debug.apk\` is also included for debugging."
+          else
+            INSTALL_NOTE="> **Install note:** Install \`A4-TV-Bridge-1.0.1-debug.apk\` directly on Android phones/tablets for immediate testing, or configure repository signing secrets (\`SIGNING_KEY_BASE64\`, \`SIGNING_KEY_ALIAS\`, \`SIGNING_STORE_PASSWORD\`, \`SIGNING_KEY_PASSWORD\`) to auto-sign \`A4-TV-Bridge-1.0.1-release.apk\`."
+          fi
+          NOTES=$(cat <<EOF
           ## A4 TV Bridge 1.0.1 — Fixed Build
           Built automatically from source via GitHub Actions.
 
           ### Theme & UI Fixes
-          - Fixed Dark Mode contrast across dialogs (`BridgeDialogDark`), window background, and `Clean Up TV` dropdown.
-          - Kept bottom navigation dock visible on `ADB Shell / Terminal` (`Panel.SHELL`) with clean 2-line label.
+          - Fixed Dark Mode contrast across dialogs (\`BridgeDialogDark\`), window background, and \`Clean Up TV\` dropdown.
+          - Kept bottom navigation dock visible on \`ADB Shell / Terminal\` (\`Panel.SHELL\`) with clean 2-line label.
           - Fixed bottom sheets to round top corners only and respect Android gesture navigation bar insets.
-          - Added active state indicators on Apps filter tabs (`Installed` / `Built-in` / `Running`) and Remote D-pad/Touchpad toggle.
+          - Added active state indicators on Apps filter tabs (\`Installed\` / \`Built-in\` / \`Running\`) and Remote D-pad/Touchpad toggle.
           - Adapted Welcome hero card and Remote D-pad gradient for True Black Dark Mode and bordered Dashboard metric tiles.
 
           ### Feature & ADB Fixes
-          - Replaced Toybox-incompatible `mv -n` and `realpath` with portable `mv --` and `readlink -f` fallback for Android 8–12 TVs.
-          - Added non-blocking `Channel` input queue for rapid D-pad / Touchpad / Screen Mirror gestures without layout bounce.
-          - Preserved ADB connection and UI state across screen rotation and system Dark/Light switches (`android:configChanges`).
-          - Added required GitHub API `User-Agent` / `Accept` headers and ABI trimming for 1-Click App Install.
+          - Replaced Toybox-incompatible \`mv -n\` and \`realpath\` with portable \`mv --\` and \`readlink -f\` fallback for Android 8–12 TVs.
+          - Added non-blocking \`Channel\` input queue for rapid D-pad / Touchpad / Screen Mirror gestures without layout bounce.
+          - Preserved ADB connection and UI state across screen rotation and system Dark/Light switches (\`android:configChanges\`).
+          - Added required GitHub API \`User-Agent\` / \`Accept\` headers and ABI trimming for 1-Click App Install.
           - Fixed Connect sheet LAN scan deadlock and expanded discovered TV list height.
-          - Fixed `Clean Up TV` restore ordering, auto-matched TV model profiles, Android 8/9 `protectForCleanup`, wrapped `df -Pk` storage parsing, and `runningPackages()` fallback.
+          - Fixed \`Clean Up TV\` restore ordering, auto-matched TV model profiles, Android 8/9 \`protectForCleanup\`, wrapped \`df -Pk\` storage parsing, and \`runningPackages()\` fallback.
 
-          > **Install note:** Install `A4-TV-Bridge-1.0.1-debug.apk` directly on Android phones/tablets for immediate testing, or sign `A4-TV-Bridge-1.0.1-release-unsigned.apk` with your release keystore.
+          $INSTALL_NOTE
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
+            if [ "$APK_SIGNED" = "true" ]; then
+              gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release-unsigned.apk -y >/dev/null 2>&1 || true
+            fi
             gh release upload "$TAG" release-apks/* --clobber
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
           else
