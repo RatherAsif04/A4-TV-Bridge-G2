@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "dev.a4tvbridge.independent"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.a4tvbridge.app"

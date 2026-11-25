@@ -6,7 +6,7 @@ Repository: [RatherAsif04/A4-TV-Bridge-G2](https://github.com/RatherAsif04/A4-TV
 
 ## Automated APK Builds
 
-Every push to `main` automatically triggers **GitHub Actions** (`.github/workflows/build-apk.yml`) on JDK 21, Android SDK Platform 36, and Gradle 9.3.1 to:
+Every push to `main` automatically triggers **GitHub Actions** (`.github/workflows/build-apk.yml`) on JDK 21, Android SDK Platform 37.0, and Gradle 9.3.1 to:
 1. Run `:app:testDebugUnitTest`
 2. Assemble `A4-TV-Bridge-1.0.1-debug.apk` (installable directly on Android 8.0+ devices) and `A4-TV-Bridge-1.0.1-release-unsigned.apk`
 3. Upload APK artifacts & SHA-256 checksums to the **Actions** tab and automatically publish the **v1.0.1 GitHub Release**.
