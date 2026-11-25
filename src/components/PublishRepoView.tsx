@@ -18,7 +18,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = '21bba7871967cfe5dfe55e0fe58c8bb6f6abb27e603b00950d1ad8c7d3bf2c10';
+const ZIP_SHA256 = '0002d85b4442dd55276deaf664f29a1ff555579ca77aa205128897c75ea1f1b6';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
@@ -44,8 +44,8 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Android SDK & Build Toolchain',
-    detail: 'Android Platform 37.0 (android-37.0), Build Tools 37.0.0, JDK 21, Gradle 9.3.1',
-    value: 'compileSdk 37',
+    detail: 'Android Platform 36 (android-36), Build Tools 36.0.0, kadb 2.1.1, JDK 21, Gradle 9.3.1',
+    value: 'compileSdk 36',
     status: 'Verified'
   },
   {
@@ -63,7 +63,7 @@ const READINESS_CHECKS = [
   {
     item: 'Clean Android-Only Archive',
     detail: 'Self-contained Gradle project with executable gradlew and binary drawables intact',
-    value: '48 files · 671.5 KB',
+    value: '47 files · 670.6 KB',
     status: 'Verified'
   },
   {
@@ -113,7 +113,7 @@ export const PublishRepoView: React.FC = () => {
             <span aria-hidden="true">·</span>
             <span>Version 1.0.1</span>
             <span aria-hidden="true">·</span>
-            <span>Android Platform 37.0</span>
+            <span>Android Platform 36</span>
             <span aria-hidden="true">·</span>
             <span>Auto-Release APK Workflow</span>
           </div>
@@ -237,7 +237,7 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                48 files · 671.5 KB
+                47 files · 670.6 KB
               </span>
             </div>
 

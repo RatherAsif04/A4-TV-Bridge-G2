@@ -24,7 +24,7 @@ jobs:
     distribution: temurin
     java-version: '25'
 
-      - name: Configure Android SDK (Platform 37.0)
+      - name: Configure Android SDK (Platform 36)
         shell: bash
         run: |
           set -euo pipefail
@@ -43,7 +43,7 @@ jobs:
           set +o pipefail
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
           set -o pipefail
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
