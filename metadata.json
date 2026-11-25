@@ -1,0 +1,6 @@
+{
+  "name": "A4 TV Bridge — Fix Audit & GIF Studio",
+  "description": "Code audit, interactive Before/After Android preview, downloadable GitHub demo GIFs, and ready-to-apply Kotlin & XML fixes for RatherAsif04/A4-TV-Bridge-Test.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
