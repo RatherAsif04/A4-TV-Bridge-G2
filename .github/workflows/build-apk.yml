@@ -50,6 +50,17 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Verify Android drawables
+        shell: bash
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi
+          if [ ! -f app/src/main/res/drawable-nodpi/a4_mark.webp ] && [ -f src/assets/a4_mark.webp ]; then
+            cp src/assets/a4_mark.webp app/src/main/res/drawable-nodpi/a4_mark.webp
+          fi
+          if [ ! -f app/src/main/res/drawable-nodpi/a4_tv.png ] && [ -f src/assets/a4_tv.png ]; then
+            cp src/assets/a4_tv.png app/src/main/res/drawable-nodpi/a4_tv.png
+          fi
+
       - name: Run unit tests
         shell: bash
         run: |
