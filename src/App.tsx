@@ -19,8 +19,9 @@ import { PhoneSimulator, type SimBuild, type SimTheme } from './components/Phone
 import { GifStudio } from './components/GifStudio';
 import { CodeFixesView } from './components/CodeFixesView';
 import { PublishRepoView } from './components/PublishRepoView';
+import { ChatAssistantView } from './components/ChatAssistantView';
 
-type MainTab = 'preview' | 'gifs' | 'code' | 'publish';
+type MainTab = 'preview' | 'gifs' | 'code' | 'publish' | 'assistant';
 
 const QUICK_SCENARIOS: { label: string; screen: ScreenId; theme: SimTheme; connected: boolean }[] = [
   { label: 'Dark Dashboard & Storage', screen: 'DASHBOARD', theme: 'dark', connected: true },
@@ -87,13 +88,14 @@ export default function App() {
           </button>
 
           {/* Zone 2: Clean single-line text navigation links */}
-          <nav className="flex items-center gap-5 sm:gap-7 text-sm font-medium">
+          <nav className="flex items-center gap-5 sm:gap-7 text-sm font-medium overflow-x-auto">
             {(
               [
                 { id: 'preview', label: 'Interactive Preview' },
                 { id: 'gifs', label: 'GIF Studio' },
                 { id: 'code', label: 'Code Fixes' },
-                { id: 'publish', label: 'Publish Repo' }
+                { id: 'publish', label: 'Publish Repo' },
+                { id: 'assistant', label: 'TV Assistant' }
               ] as const
             ).map((nav) => {
               const active = activeTab === nav.id;
@@ -363,6 +365,8 @@ export default function App() {
         )}
 
         {activeTab === 'publish' && <PublishRepoView />}
+
+        {activeTab === 'assistant' && <ChatAssistantView />}
       </main>
     </div>
   );
