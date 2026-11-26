@@ -241,24 +241,27 @@ internal fun BridgeActivity.cleanup() {
 internal fun BridgeActivity.showDnsOptions() {
     val tv = connection ?: return
     val key = "dns-before-${tv.serial}"
+    fun applyHostname(raw: String) {
+        val hostname = raw.trim().lowercase()
+        val label = Regex("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+        if (hostname.length !in 4..253 || '.' !in hostname || !hostname.split('.').all(label::matches)) {
+            return report("Enter a DNS provider hostname.")
+        }
+        confirm("Change Private DNS?", "Set Private DNS to $hostname for the entire TV. Restore the previous settings if network access is interrupted.") {
+            tvTask({
+                if (!preferences.contains(key)) {
+                    val backup = org.json.JSONArray(readDns()).toString()
+                    check(preferences.edit().putString(key, backup).commit()) { "Could not save the existing DNS settings." }
+                }
+                writeDns(listOf("hostname", hostname))
+            }) { report("Private DNS updated to $hostname.") }
+        }
+    }
     val options = mutableListOf<Pair<String, () -> Unit>>(
-        "Set a private DNS hostname" to {
-            ask("Private DNS hostname", "dns.adguard-dns.com") { raw ->
-                val hostname = raw.trim().lowercase()
-                val label = Regex("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
-                if (hostname.length !in 4..253 || '.' !in hostname || !hostname.split('.').all(label::matches)) {
-                    return@ask report("Enter a DNS provider hostname.")
-                }
-                confirm("Change Private DNS?", "This changes DNS for the entire TV. Restore the previous settings if network access is interrupted.") {
-                    tvTask({
-                        if (!preferences.contains(key)) {
-                            val backup = org.json.JSONArray(readDns()).toString()
-                            check(preferences.edit().putString(key, backup).commit()) { "Could not save the existing DNS settings." }
-                        }
-                        writeDns(listOf("hostname", hostname))
-                    }) { report("Private DNS updated.") }
-                }
-            }
+        "AdGuard DNS (dns.adguard-dns.com)" to { applyHostname("dns.adguard-dns.com") },
+        "Mullvad Adblock DNS (adblock.dns.mullvad.net)" to { applyHostname("adblock.dns.mullvad.net") },
+        "Custom private DNS hostname" to {
+            ask("Private DNS hostname", "dns.adguard-dns.com", ::applyHostname)
         }
     )
     val previous = preferences.getString(key, null)
@@ -269,6 +272,10 @@ internal fun BridgeActivity.showDnsOptions() {
                 writeDns(listOf(stored.getString(0), stored.getString(1)))
                 preferences.edit().remove(key).apply()
             }) { report("Private DNS restored.") }
+        }
+    } else options += "Turn off Private DNS" to {
+        confirm("Turn off Private DNS?", "This disables Private DNS on the TV and returns to standard network DNS.") {
+            tvTask({ writeDns(listOf("off", "")) }) { report("Private DNS turned off.") }
         }
     }
     choose("Block Ads", options)

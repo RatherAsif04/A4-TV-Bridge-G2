@@ -77,7 +77,7 @@ internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
     return FrameLayout(this).apply {
         clipChildren = false
         val surface = View(this@dock).apply { background = card(radius = corner) }
-        addView(surface, FrameLayout.LayoutParams(BridgeActivity.MATCH, px(63), Gravity.BOTTOM))
+        addView(surface, FrameLayout.LayoutParams(BridgeActivity.MATCH, px(66), Gravity.BOTTOM))
         val strip = row().apply { gravity = Gravity.BOTTOM; clipChildren = false }
         addView(strip, FrameLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.MATCH, Gravity.BOTTOM))
         for ((label, icon, destination) in options) {
@@ -95,20 +95,20 @@ internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
                     graphic.background = card(accent, 50, false)
                     graphic.elevation = px(3).toFloat()
                     addView(graphic, LinearLayout.LayoutParams(px(48), px(48)).apply { bottomMargin = px(4) })
-                } else addView(graphic, LinearLayout.LayoutParams(px(21), px(21)).apply { bottomMargin = px(3) })
+                } else addView(graphic, LinearLayout.LayoutParams(px(20), px(20)).apply { bottomMargin = px(3) })
                 addView(text(when (destination) {
                     Panel.LIBRARY -> "Apps &\nFiles"
                     Panel.SHELL -> "ADB\nTerminal"
                     else -> label
                 }, 11, color, true).apply {
-                    letterSpacing = .035f
+                    letterSpacing = .03f
                     gravity = Gravity.CENTER
                     maxLines = 2
                     minLines = if (destination == null) 1 else 2
                 })
             }
-            strip.addView(tab, LinearLayout.LayoutParams(0, px(if (destination == null) 77 else 60), 1f).apply {
-                marginStart = px(2); marginEnd = px(2); bottomMargin = px(if (destination == null) 7 else 1)
+            strip.addView(tab, LinearLayout.LayoutParams(0, px(if (destination == null) 78 else 60), 1f).apply {
+                marginStart = px(3); marginEnd = px(3); bottomMargin = px(if (destination == null) 6 else 3)
             })
         }
     }
@@ -126,37 +126,53 @@ internal fun BridgeActivity.showSheet(
         background = GradientDrawable().apply {
             setColor(surface)
             cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+            if (dark) setStroke(px(1), edge)
         }
-        setPadding(px(21), px(21), px(21), px(24))
+        setPadding(px(21), px(18), px(21), px(24))
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
             val nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            view.setPadding(px(21), px(21), px(21), px(24) + nav.bottom)
+            view.setPadding(px(21), px(18), px(21), px(24) + nav.bottom)
             insets
         }
         val handle = View(this@showSheet).apply { background = card(muted, 5, false) }
-        addView(handle, LinearLayout.LayoutParams(px(32), px(4)).apply { gravity = Gravity.CENTER; bottomMargin = px(16) })
+        addView(handle, LinearLayout.LayoutParams(px(34), px(4)).apply { gravity = Gravity.CENTER; bottomMargin = px(14) })
         val header = row()
-        header.addView(text(title, 24, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+        header.addView(text(title, 21, bold = true).apply {
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(8) })
         if (closeIcon) header.addView(Glyph(this@showSheet, Mark.CLOSE, muted, 20).apply {
             contentDescription = "Close"
             isFocusable = true
             setOnClickListener { popup.dismiss() }
         }, LinearLayout.LayoutParams(px(42), px(40)))
-        else header.minimumHeight = px(46)
-        addView(header, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+        else header.minimumHeight = px(44)
+        addView(header, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
     }
     populate(popup, sheet)
     popup.setContentView(sheet)
     popup.show()
     popup.window?.run {
         setBackgroundDrawableResource(android.R.color.transparent)
-        setDimAmount(0.35f)
+        setDimAmount(0.45f)
         addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         navigationBarColor = surface
         androidx.core.view.WindowCompat.getInsetsController(this, decorView).isAppearanceLightNavigationBars = !dark
         setGravity(Gravity.BOTTOM)
         setLayout(BridgeActivity.MATCH, BridgeActivity.WRAP)
     }
+}
+
+internal fun BridgeActivity.attachSheetBody(frame: LinearLayout, body: LinearLayout) {
+    val height = px((resources.configuration.screenHeightDp - 220).coerceAtLeast(160))
+    body.measure(
+        View.MeasureSpec.makeMeasureSpec((resources.displayMetrics.widthPixels - px(42)).coerceAtLeast(1), View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+    )
+    frame.addView(
+        android.widget.ScrollView(this).apply { addView(body) },
+        LinearLayout.LayoutParams(BridgeActivity.MATCH, minOf(height, body.measuredHeight))
+    )
 }
 
 internal fun BridgeActivity.outlinedCard(fill: Int = field, radius: Int = 22, stroke: Int = 2) =

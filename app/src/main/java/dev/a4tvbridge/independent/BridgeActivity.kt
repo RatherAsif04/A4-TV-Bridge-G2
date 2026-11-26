@@ -176,11 +176,16 @@ class BridgeActivity : Activity() {
         when {
             settingsPage -> header.addView(backButton("Back"))
             welcome -> {
-                header.addView(textButton("Feedback") { openLink("$releaseRoot/issues") },
+                fun topLink(label: String, action: () -> Unit) = textButton(label, action = action).apply {
+                    textSize = 14f
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+                header.addView(topLink("Feedback") { openLink("$releaseRoot/issues") },
                     LinearLayout.LayoutParams(0, WRAP, 1f))
-                header.addView(textButton("Appearance") { show(Panel.APPEARANCE) },
-                    LinearLayout.LayoutParams(0, WRAP, 1.2f))
-                header.addView(textButton("Restore a TV") { connectionPicker(after = Panel.RESTORE) },
+                header.addView(topLink("Appearance") { show(Panel.APPEARANCE) },
+                    LinearLayout.LayoutParams(0, WRAP, 1.15f))
+                header.addView(topLink("Restore a TV") { connectionPicker(after = Panel.RESTORE) },
                     LinearLayout.LayoutParams(0, WRAP, 1.2f))
                 addHeaderAction(Mark.INFO, "About A4 TV Bridge", ::openAbout)
             }
@@ -207,9 +212,13 @@ class BridgeActivity : Activity() {
             }
         }
         shell.addView(header, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(11) })
-        notice = text(if (activeOperation) "Working…" else "", 14, muted)
+        notice = text(if (activeOperation) "Working…" else "", 14, ink).apply {
+            background = card(tint, 12, outlined = true)
+            setPadding(px(14), px(10), px(14), px(10))
+            setOnClickListener { if (!activeOperation) report("") }
+        }
         notice.visibility = if (activeOperation) View.VISIBLE else View.GONE
-        shell.addView(notice, LinearLayout.LayoutParams(MATCH, WRAP))
+        shell.addView(notice, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
         val scroll = ScrollView(this).apply { isFillViewport = true }
         content = column().apply { setPadding(0, px(6), 0, px(18)) }
         scroll.addView(content)
@@ -218,7 +227,7 @@ class BridgeActivity : Activity() {
         }
         shell.addView(screenBody, LinearLayout.LayoutParams(MATCH, 0, 1f))
         if (connection != null && page in primaryPanels) {
-            shell.addView(dock(page, ::controls), LinearLayout.LayoutParams(MATCH, px(80)).apply { bottomMargin = px(26) })
+            shell.addView(dock(page, ::controls), LinearLayout.LayoutParams(MATCH, px(84)).apply { bottomMargin = px(14) })
         }
         if (page !in setOf(Panel.DASHBOARD, Panel.APPEARANCE) && connection == null) {
             heading("Connect a TV")
@@ -281,6 +290,7 @@ class BridgeActivity : Activity() {
             .setTitle(if (pair) "Pair with a TV" else "Connect to a TV")
             .setView(ScrollView(this).apply { addView(form) })
             .setNegativeButton("Cancel", null).setPositiveButton(if (pair) "Pair and connect" else "Connect", null).create()
+        styleDialog(dialogue)
         dialogue.show()
         dialogue.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val inputPort = port.text.toString().trim()
@@ -351,6 +361,8 @@ class BridgeActivity : Activity() {
     }
 
     internal fun disconnect() {
+        polling?.cancel()
+        polling = null
         val previous = connection
         connection = null
         shellCommand = ""
@@ -359,6 +371,7 @@ class BridgeActivity : Activity() {
         folders.clear()
         folders.add(TvPath.root)
         screens.clear()
+        report("")
         show(Panel.DASHBOARD, rememberPage = false)
     }
 
@@ -385,10 +398,10 @@ class BridgeActivity : Activity() {
     private fun terminal() {
         heading("ADB Shell / Terminal")
         paragraph("Runs a non-interactive command as the connected TV’s shell user. Results include stdout, stderr, and the exit code.")
-        val inputArea = outlinedCard(surface, radius = 4, stroke = 1)
-        val label = text("Command", 12, muted).apply { letterSpacing = .03f }
+        val inputArea = outlinedCard(field, radius = corner, stroke = 1)
+        val label = text("Command", 12, muted, bold = true).apply { letterSpacing = .03f }
         inputArea.addView(label)
-        val command = input("Command").apply {
+        val command = input("e.g. pm list packages -3").apply {
             setText(shellCommand)
             gravity = Gravity.TOP or Gravity.START
             minimumHeight = px(66)
@@ -474,14 +487,17 @@ class BridgeActivity : Activity() {
     internal fun watch(loop: suspend () -> Unit) {
         polling?.cancel()
         val outside = content
+        val activeTv = connection
         polling = scope.launch {
-            while (content === outside) {
+            while (content === outside && connection === activeTv && activeTv != null) {
                 try {
                     if (!activeOperation) loop()
                 } catch (cancel: CancellationException) {
                     throw cancel
                 } catch (error: Exception) {
-                    report(error.message?.take(150) ?: "The TV could not be read.")
+                    if (content === outside && connection === activeTv) {
+                        report(error.message?.take(150) ?: "The TV could not be read.")
+                    }
                 }
                 kotlinx.coroutines.delay(1000)
             }
@@ -556,15 +572,40 @@ class BridgeActivity : Activity() {
             .onFailure { report("This device could not open the link.") }
     }
 
+    private fun styleDialog(dialogue: AlertDialog) {
+        dialogue.setOnShowListener {
+            dialogue.window?.setBackgroundDrawable(
+                android.graphics.drawable.InsetDrawable(card(surface, 20, outlined = dark), px(16))
+            )
+            dialogue.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+                isAllCaps = false
+                setTextColor(accent)
+            }
+            dialogue.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+                isAllCaps = false
+                setTextColor(muted)
+            }
+        }
+    }
+
     internal fun confirm(title: String, description: String, action: () -> Unit) {
-        AlertDialog.Builder(this, dialogTheme).setTitle(title).setMessage(description)
-            .setNegativeButton("Cancel", null).setPositiveButton("Confirm") { _, _ -> action() }.show()
+        val dialogue = AlertDialog.Builder(this, dialogTheme).setTitle(title).setMessage(description)
+            .setNegativeButton("Cancel", null).setPositiveButton("Confirm") { _, _ -> action() }.create()
+        styleDialog(dialogue)
+        dialogue.show()
     }
 
     internal fun ask(title: String, initial: String = "", action: (String) -> Unit) {
         val value = input(title, themed = true).apply { setText(initial) }
-        AlertDialog.Builder(this, dialogTheme).setTitle(title).setView(value).setNegativeButton("Cancel", null)
-            .setPositiveButton("OK") { _, _ -> action(value.text.toString()) }.show()
+        val container = column().apply {
+            setPadding(px(20), px(8), px(20), px(4))
+            addView(value)
+        }
+        val dialogue = AlertDialog.Builder(this, dialogTheme).setTitle(title).setView(container)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("OK") { _, _ -> action(value.text.toString()) }.create()
+        styleDialog(dialogue)
+        dialogue.show()
     }
 
     internal fun heading(value: String, size: Int = 24) {

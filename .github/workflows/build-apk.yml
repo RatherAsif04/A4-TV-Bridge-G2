@@ -114,6 +114,7 @@ jobs:
             fi
 
             "$APKSIGNER" sign \
+              --v4-signing-enabled false \
               --ks "$KEYSTORE_PATH" \
               --ks-type "$KS_TYPE" \
               --ks-key-alias "$SIGNING_KEY_ALIAS" \
@@ -122,6 +123,7 @@ jobs:
               --out release-apks/A4-TV-Bridge-1.0.1-release.apk \
               app/build/outputs/apk/release/app-release-unsigned.apk
 
+            rm -f release-apks/*.idsig
             "$APKSIGNER" verify --print-certs release-apks/A4-TV-Bridge-1.0.1-release.apk
             SIGNED_RELEASE=true
           else
@@ -156,25 +158,25 @@ jobs:
           Built automatically from source via GitHub Actions.
 
           ### Theme & UI Fixes
+          - Replaced square white system \`AlertDialog\` menus (\`Other TV types\`, \`Block Ads\`, \`Record TV screen\`, \`Change TV\`, app/file/permission menus) with rounded themed bottom sheets.
+          - Styled confirmation and input dialogs with rounded themed surfaces and non-all-caps buttons in both Light and Dark modes.
+          - Fixed stale "The TV could not be read." notice persisting on the Welcome screen after disconnect and styled status banners as tap-to-dismiss cards.
+          - Fixed duplicate "Command" label/hint and rounded input styling in \`ADB Shell / Terminal\`.
+          - Refined bottom navigation dock spacing, rounded Dashboard storage progress bar, and flush-aligned CPU/RAM/Network metric cards.
           - Fixed Dark Mode contrast across dialogs (\`BridgeDialogDark\`), window background, and \`Clean Up TV\` dropdown.
-          - Kept bottom navigation dock visible on \`ADB Shell / Terminal\` (\`Panel.SHELL\`) with clean 2-line label.
-          - Fixed bottom sheets to round top corners only and respect Android gesture navigation bar insets.
-          - Added active state indicators on Apps filter tabs (\`Installed\` / \`Built-in\` / \`Running\`) and Remote D-pad/Touchpad toggle.
-          - Adapted Welcome hero card and Remote D-pad gradient for True Black Dark Mode and bordered Dashboard metric tiles.
 
           ### Feature & ADB Fixes
+          - Upgraded \`kadb\` to \`2.1.4\` to resolve Android Conscrypt "Only RSA private keys with CRT parameters are supported" connection errors on modern devices.
+          - Added 1-tap \`AdGuard DNS\` and \`Mullvad Adblock DNS\` presets plus \`Turn off Private DNS\` in \`Block Ads\`.
           - Replaced Toybox-incompatible \`mv -n\` and \`realpath\` with portable \`mv --\` and \`readlink -f\` fallback for Android 8–12 TVs.
-          - Added non-blocking \`Channel\` input queue for rapid D-pad / Touchpad / Screen Mirror gestures without layout bounce.
-          - Preserved ADB connection and UI state across screen rotation and system Dark/Light switches (\`android:configChanges\`).
-          - Added required GitHub API \`User-Agent\` / \`Accept\` headers and ABI trimming for 1-Click App Install.
-          - Fixed Connect sheet LAN scan deadlock and expanded discovered TV list height.
-          - Fixed \`Clean Up TV\` restore ordering, auto-matched TV model profiles, Android 8/9 \`protectForCleanup\`, wrapped \`df -Pk\` storage parsing, and \`runningPackages()\` fallback.
+          - Added non-blocking \`Channel\` input queue for rapid D-pad / Touchpad / Screen Mirror gestures and preserved ADB connection across rotation/theme changes.
 
           $INSTALL_NOTE
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-apks/* --clobber
+            gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release.apk.idsig -y >/dev/null 2>&1 || true
             if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
               gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release-unsigned.apk -y >/dev/null 2>&1 || true
             fi

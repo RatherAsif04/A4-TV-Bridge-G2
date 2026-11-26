@@ -1,6 +1,5 @@
 package dev.a4tvbridge.independent
 
-import android.app.AlertDialog
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.text.Editable
@@ -398,9 +397,34 @@ internal fun BridgeActivity.stage(uri: Uri): Pair<String, File> {
 }
 
 internal fun BridgeActivity.choose(title: String, actions: List<Pair<String, () -> Unit>>) {
-    AlertDialog.Builder(this, dialogTheme).setTitle(title).setItems(actions.map { it.first }.toTypedArray()) { _, selected ->
-        actions[selected].second()
-    }.setNegativeButton("Close", null).show()
+    showSheet(title) { popup, sheet ->
+        val list = column()
+        for ((index, entry) in actions.withIndex()) {
+            val (label, action) = entry
+            val item = row().apply {
+                minimumHeight = px(50)
+                setPadding(px(16), px(12), px(16), px(12))
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(ripple),
+                    card(field, corner, outlined = true),
+                    null
+                )
+                contentDescription = label
+                isFocusable = true
+                isClickable = true
+                addView(text(label, 15, ink, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+                addView(text("›", 21, muted), LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { marginStart = px(8) })
+                setOnClickListener {
+                    popup.dismiss()
+                    action()
+                }
+            }
+            list.addView(item, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+                if (index < actions.lastIndex) bottomMargin = px(8)
+            })
+        }
+        attachSheetBody(sheet, list)
+    }
 }
 
 internal fun BridgeActivity.commandStatus(result: TerminalResult, message: String) {

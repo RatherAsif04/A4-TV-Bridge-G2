@@ -2,7 +2,6 @@ package dev.a4tvbridge.independent
 
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 
 internal fun BridgeActivity.openAbout() {
     showSheet("About A4 TV Bridge", closeIcon = false) { popup, frame ->
@@ -79,12 +78,4 @@ private fun BridgeActivity.aboutLink(label: String, external: Boolean = true, se
     contentDescription = label
     isFocusable = true
     setOnClickListener { select() }
-}
-
-private fun BridgeActivity.attachSheetBody(frame: LinearLayout, body: LinearLayout) {
-    val height = px((resources.configuration.screenHeightDp - 220).coerceAtLeast(160))
-    body.measure(android.view.View.MeasureSpec.makeMeasureSpec(resources.displayMetrics.widthPixels - px(42), android.view.View.MeasureSpec.EXACTLY),
-        android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED))
-    frame.addView(ScrollView(this).apply { addView(body) },
-        LinearLayout.LayoutParams(BridgeActivity.MATCH, minOf(height, body.measuredHeight)))
 }

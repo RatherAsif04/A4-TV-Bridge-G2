@@ -68,27 +68,44 @@ internal fun BridgeActivity.dashboard() {
     storageHeading.addView(storage)
     activity.addView(storageHeading, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(6) })
     val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-        progressTintList = ColorStateList.valueOf(accent)
-        progressBackgroundTintList = ColorStateList.valueOf(edge)
+        val track = card(edge, 6, outlined = false)
+        val fill = android.graphics.drawable.ClipDrawable(
+            card(accent, 6, outlined = false),
+            android.view.Gravity.START,
+            android.graphics.drawable.ClipDrawable.HORIZONTAL
+        )
+        progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(track, fill)).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+        }
         max = 100
     }
-    activity.addView(bar, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(13)))
+    activity.addView(bar, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(8)).apply {
+        topMargin = px(6)
+        bottomMargin = px(8)
+    })
     val monitors = row()
-    fun metric(label: String): TextView {
+    fun metric(label: String, isLast: Boolean = false): TextView {
         val stack = column().apply {
             background = card(surface, 11, outlined = true)
-            setPadding(px(9), px(8), px(7), px(8))
+            setPadding(px(9), px(8), px(8), px(8))
         }
         stack.addView(text(label, 12, muted))
-        val value = text("—", 16, bold = true).apply { setPadding(0, px(3), 0, 0) }
+        val value = text("—", 15, bold = true).apply {
+            setPadding(0, px(3), 0, 0)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
         stack.addView(value)
-        monitors.addView(stack, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(4) })
+        monitors.addView(stack, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
+            if (!isLast) marginEnd = px(6)
+        })
         return value
     }
     val cpu = metric("CPU")
     val ram = metric("RAM")
-    val network = metric("Network")
-    activity.addView(monitors, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(5) })
+    val network = metric("Network", isLast = true)
+    activity.addView(monitors, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(4) })
     content.addView(activity, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
     heading("Quick actions")
     tiles(content, 2,
