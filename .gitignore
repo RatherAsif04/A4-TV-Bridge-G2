@@ -12,4 +12,8 @@ local.properties
 *.iml
 .idea/
 release-apks/
-
+*.p12
+*.pfx
+*.jks
+*.keystore
+signing*.properties

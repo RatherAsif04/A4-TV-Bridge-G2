@@ -7,7 +7,10 @@ import {
   ExternalLink,
   FolderArchive,
   GitBranch,
-  Terminal
+  KeyRound,
+  ShieldCheck,
+  Terminal,
+  Upload
 } from 'lucide-react';
 
 type CommandMode = 'gh' | 'git';
@@ -18,7 +21,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = '8c812389ef09c61ccde4b4dc0d6057eb5a664af086a0d67babca3ed9b16a7eae';
+const ZIP_SHA256 = '71228dc8ffbfae5333e3f17db76e63e85ebdb1c65526c659e1ac2070270e1554';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
@@ -44,8 +47,8 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Android SDK & Build Toolchain',
-    detail: 'Android Platform 37.0 (android-37.0), AGP 9.5.3, kadb 2.1.5, JDK 21, Gradle 9.6.0',
-    value: 'compileSdk 37',
+    detail: 'Android Platform 36 (android-36), Build Tools 36.0.0, kadb 2.1.1, JDK 21, Gradle 9.3.1',
+    value: 'compileSdk 36',
     status: 'Verified'
   },
   {
@@ -63,7 +66,7 @@ const READINESS_CHECKS = [
   {
     item: 'Clean Android-Only Archive',
     detail: 'Self-contained Gradle project with executable gradlew and binary drawables intact',
-    value: '47 files · 671.4 KB',
+    value: '47 files · 671.3 KB',
     status: 'Verified'
   },
   {
@@ -78,8 +81,41 @@ export const PublishRepoView: React.FC = () => {
   const [commandMode, setCommandMode] = useState<CommandMode>('gh');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [downloaded, setDownloaded] = useState(false);
+  const [keystoreFileName, setKeystoreFileName] = useState<string | null>(null);
+  const [keystoreBytes, setKeystoreBytes] = useState<number>(0);
+  const [keystoreBase64, setKeystoreBase64] = useState<string>('');
+  const [keystoreError, setKeystoreError] = useState<string | null>(null);
 
   const activeScript = commandMode === 'gh' ? GH_CLI_SCRIPT : STANDARD_GIT_SCRIPT;
+
+  const handleKeystoreSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size === 0 || file.size > 5 * 1024 * 1024) {
+      setKeystoreError('Select a valid .p12, .pfx, or .jks keystore file under 5 MB.');
+      setKeystoreFileName(null);
+      setKeystoreBase64('');
+      return;
+    }
+    setKeystoreError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const buffer = reader.result as ArrayBuffer;
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      setKeystoreFileName(file.name);
+      setKeystoreBytes(bytes.length);
+      setKeystoreBase64(btoa(binary));
+    };
+    reader.onerror = () => {
+      setKeystoreError('Could not read the selected file locally.');
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   const copyText = async (key: string, text: string) => {
     try {
@@ -113,7 +149,7 @@ export const PublishRepoView: React.FC = () => {
             <span aria-hidden="true">·</span>
             <span>Version 1.0.1</span>
             <span aria-hidden="true">·</span>
-            <span>Android Platform 37.0</span>
+            <span>Android Platform 36</span>
             <span aria-hidden="true">·</span>
             <span>Auto-Release APK Workflow</span>
           </div>
@@ -237,7 +273,7 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                47 files · 671.4 KB
+                47 files · 671.3 KB
               </span>
             </div>
 
@@ -310,6 +346,134 @@ export const PublishRepoView: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Offline Release APK Signing Helper (.p12 / .jks -> GitHub Secrets) */}
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <KeyRound className="w-4 h-4 text-[#00587B] dark:text-[#B0DEFF] shrink-0" />
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              Sign Public Release APK (.p12 / .jks)
+            </h2>
+          </div>
+          <a
+            href={`${REPO_URL}/settings/secrets/actions`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-[#00587B] dark:text-[#B0DEFF] hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
+          >
+            Open GitHub Actions Secrets
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          Convert your <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.p12</code> or{' '}
+          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.jks</code> keystore to Base64 locally in your browser (never uploaded anywhere), then add the 4 secrets in GitHub Settings so every push automatically signs{' '}
+          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">A4-TV-Bridge-1.0.1-release.apk</code>.
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Local Base64 Encoder */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                1. Local .p12 / .jks → Base64 Converter
+              </span>
+              <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                100% On-Device
+              </span>
+            </div>
+
+            <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#00587B] dark:hover:border-[#B0DEFF] bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+              <Upload className="w-4 h-4 text-[#00587B] dark:text-[#B0DEFF]" />
+              <span>{keystoreFileName ? `Selected: ${keystoreFileName} (${keystoreBytes.toLocaleString()} B)` : 'Choose .p12, .pfx, or .jks file'}</span>
+              <input
+                type="file"
+                accept=".p12,.pfx,.jks,.keystore"
+                onChange={handleKeystoreSelect}
+                className="sr-only"
+              />
+            </label>
+
+            {keystoreError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{keystoreError}</p>
+            )}
+
+            {keystoreBase64 && (
+              <div className="space-y-2">
+                <div className="p-2.5 rounded-lg bg-slate-900 text-slate-200 font-mono text-[11px] break-all max-h-20 overflow-hidden">
+                  {keystoreBase64.slice(0, 140)}… ({keystoreBase64.length.toLocaleString()} chars)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyText('keystore-b64', keystoreBase64)}
+                    className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-[#00587B] hover:bg-[#004663] rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedKey === 'keystore-b64' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Copied Base64 for SIGNING_KEY_BASE64
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy Base64 String
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeystoreFileName(null);
+                      setKeystoreBytes(0);
+                      setKeystoreBase64('');
+                    }}
+                    className="px-3 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4 Required GitHub Secrets */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
+            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              2. Add these 4 Repository Secrets in GitHub
+            </div>
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+              {[
+                { name: 'SIGNING_KEY_BASE64', hint: 'Paste the Base64 text from your .p12 file' },
+                { name: 'SIGNING_KEY_ALIAS', hint: 'keyAlias from your signing.properties' },
+                { name: 'SIGNING_STORE_PASSWORD', hint: 'storePassword from your signing.properties' },
+                { name: 'SIGNING_KEY_PASSWORD', hint: 'keyPassword (optional for .p12 if identical)' }
+              ].map((secret) => (
+                <div key={secret.name} className="py-2 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      {secret.name}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {secret.hint}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyText(`secret-${secret.name}`, secret.name)}
+                    className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    {copiedKey === `secret-${secret.name}` ? 'Copied' : 'Copy name'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Release Readiness Verification Table */}
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">

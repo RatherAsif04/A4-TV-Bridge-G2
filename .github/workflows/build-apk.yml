@@ -24,7 +24,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Configure Android SDK (Platform 37.0)
+      - name: Configure Android SDK (Platform 36)
         shell: bash
         run: |
           set -euo pipefail
@@ -43,12 +43,12 @@ jobs:
           set +o pipefail
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
           set -o pipefail
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0" "platform-tools"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '9.6.0'
+          gradle-version: '9.3.1'
 
       - name: Verify Android drawables
         shell: bash
@@ -80,53 +80,56 @@ jobs:
             gradle :app:assembleDebug :app:assembleRelease --stacktrace
           fi
 
-      - name: Prepare & Sign APK artifacts
-        id: sign_apk
-        shell: bash
+      - name: Prepare APK artifacts, sign release, & checksums
         env:
           SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-apks
           cp app/build/outputs/apk/debug/app-debug.apk release-apks/A4-TV-Bridge-1.0.1-debug.apk
 
-          if [ -n "${SIGNING_KEY_BASE64:-}" ] && [ -n "${SIGNING_KEY_ALIAS:-}" ] && [ -n "${SIGNING_STORE_PASSWORD:-}" ]; then
-            SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-            ZIPALIGN="$SDK_ROOT/build-tools/36.0.0/zipalign"
-            APKSIGNER="$SDK_ROOT/build-tools/36.0.0/apksigner"
-            [ -x "$ZIPALIGN" ] || ZIPALIGN="$(find "$SDK_ROOT/build-tools" -name zipalign -type f | sort -V | tail -n 1)"
-            [ -x "$APKSIGNER" ] || APKSIGNER="$(find "$SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
-
-            KEYSTORE_PATH="$RUNNER_TEMP/a4-release.keystore"
-            ALIGNED_APK="$RUNNER_TEMP/app-release-aligned.apk"
-            trap 'rm -f "$KEYSTORE_PATH" "$ALIGNED_APK"' EXIT
-
+          SIGNED_RELEASE=false
+          if [ -n "${SIGNING_KEY_BASE64:-}" ] && [ -n "${SIGNING_STORE_PASSWORD:-}" ] && [ -n "${SIGNING_KEY_ALIAS:-}" ]; then
+            KEYSTORE_PATH="$(mktemp)"
+            trap 'rm -f "$KEYSTORE_PATH"' EXIT
             printf '%s' "$SIGNING_KEY_BASE64" | tr -d '\r\n ' | base64 --decode > "$KEYSTORE_PATH"
-            export EFFECTIVE_KEY_PASSWORD="${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}"
 
-            "$ZIPALIGN" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk "$ALIGNED_APK"
+            KS_TYPE="PKCS12"
+            MAGIC="$(od -An -tx1 -N4 "$KEYSTORE_PATH" | tr -d ' \n')"
+            if [ "$MAGIC" = "feedfeed" ]; then
+              KS_TYPE="JKS"
+            fi
+            echo "Signing release APK with detected keystore type: $KS_TYPE"
+
+            export KS_PASS="$SIGNING_STORE_PASSWORD"
+            export KEY_PASS="${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}"
+
+            APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+            if [ ! -x "$APKSIGNER" ]; then
+              APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)"
+            fi
+
             "$APKSIGNER" sign \
               --ks "$KEYSTORE_PATH" \
+              --ks-type "$KS_TYPE" \
               --ks-key-alias "$SIGNING_KEY_ALIAS" \
-              --ks-pass env:SIGNING_STORE_PASSWORD \
-              --key-pass env:EFFECTIVE_KEY_PASSWORD \
-              --v1-signing-enabled true \
-              --v2-signing-enabled true \
-              --v3-signing-enabled true \
+              --ks-pass env:KS_PASS \
+              --key-pass env:KEY_PASS \
               --out release-apks/A4-TV-Bridge-1.0.1-release.apk \
-              "$ALIGNED_APK"
+              app/build/outputs/apk/release/app-release-unsigned.apk
 
-            "$APKSIGNER" verify --verbose release-apks/A4-TV-Bridge-1.0.1-release.apk
-            echo "signed=true" >> "$GITHUB_OUTPUT"
+            "$APKSIGNER" verify --print-certs release-apks/A4-TV-Bridge-1.0.1-release.apk
+            SIGNED_RELEASE=true
           else
-            echo "Signing secrets not configured; packaging unsigned release APK."
+            echo "Signing secrets not configured; keeping unsigned release APK."
             cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.0.1-release-unsigned.apk
-            echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
 
+          echo "SIGNED_RELEASE=$SIGNED_RELEASE" >> "$GITHUB_ENV"
           (cd release-apks && sha256sum *.apk > SHA256SUMS.txt)
           cat release-apks/SHA256SUMS.txt
 
@@ -140,14 +143,13 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APK_SIGNED: ${{ steps.sign_apk.outputs.signed }}
         run: |
           TAG="v1.0.1"
           TITLE="A4 TV Bridge 1.0.1 (Theme & Feature Fixes)"
-          if [ "$APK_SIGNED" = "true" ]; then
-            INSTALL_NOTE="> **Install note:** Download and install \`A4-TV-Bridge-1.0.1-release.apk\` on your Android phone or tablet (Android 8.0+). \`A4-TV-Bridge-1.0.1-debug.apk\` is also included for debugging."
+          if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
+            INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.0.1-release.apk` directly on Android phones or tablets (signed with the official release keystore).'
           else
-            INSTALL_NOTE="> **Install note:** Install \`A4-TV-Bridge-1.0.1-debug.apk\` directly on Android phones/tablets for immediate testing, or configure repository signing secrets (\`SIGNING_KEY_BASE64\`, \`SIGNING_KEY_ALIAS\`, \`SIGNING_STORE_PASSWORD\`, \`SIGNING_KEY_PASSWORD\`) to auto-sign \`A4-TV-Bridge-1.0.1-release.apk\`."
+            INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.0.1-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
           fi
           NOTES=$(cat <<EOF
           ## A4 TV Bridge 1.0.1 — Fixed Build
@@ -172,11 +174,12 @@ jobs:
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
-            if [ "$APK_SIGNED" = "true" ]; then
+            gh release upload "$TAG" release-apks/* --clobber
+            if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
               gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release-unsigned.apk -y >/dev/null 2>&1 || true
             fi
-            gh release upload "$TAG" release-apks/* --clobber
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
           else
             gh release create "$TAG" release-apks/* --title "$TITLE" --notes "$NOTES"
           fi
+
