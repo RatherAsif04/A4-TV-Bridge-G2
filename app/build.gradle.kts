@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "dev.a4tvbridge.independent"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.a4tvbridge.app"
@@ -35,9 +35,9 @@ dependencies {
         implementation("androidx.lifecycle:lifecycle-runtime:2.8.7")
         implementation("androidx.profileinstaller:profileinstaller:1.4.0")
     }
-    implementation("com.flyfishxu:kadb:2.1.1")
+    implementation("com.flyfishxu:kadb:2.1.4")
     implementation("org.conscrypt:conscrypt-android:2.8.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
 }

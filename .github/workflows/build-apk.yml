@@ -24,7 +24,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Configure Android SDK (Platform 36)
+      - name: Configure Android SDK (Platform 37.0)
         shell: bash
         run: |
           set -euo pipefail
@@ -43,7 +43,7 @@ jobs:
           set +o pipefail
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
           set -o pipefail
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -108,7 +108,7 @@ jobs:
             export KS_PASS="$SIGNING_STORE_PASSWORD"
             export KEY_PASS="${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}"
 
-            APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+            APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
             if [ ! -x "$APKSIGNER" ]; then
               APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)"
             fi
