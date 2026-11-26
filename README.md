@@ -6,7 +6,7 @@ Repository: [RatherAsif04/A4-TV-Bridge-G2](https://github.com/RatherAsif04/A4-TV
 
 ## Automated APK Builds
 
-Every push to `main` automatically triggers **GitHub Actions** (`.github/workflows/build-apk.yml`) on JDK 21, Android SDK Platform 36, and Gradle 9.3.1 to:
+Every push to `main` automatically triggers **GitHub Actions** (`.github/workflows/build-apk.yml`) on JDK 21, Android SDK Platform 37.0, and Gradle 9.6.0 to:
 1. Run `:app:testDebugUnitTest`
 2. Assemble `A4-TV-Bridge-1.0.1-debug.apk` and `A4-TV-Bridge-1.0.1-release.apk` (automatically aligned with `zipalign` and signed/verified with `apksigner` when the repository signing secrets `SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, and `SIGNING_KEY_PASSWORD` are configured; otherwise outputs `A4-TV-Bridge-1.0.1-release-unsigned.apk`)
 3. Upload APK artifacts & SHA-256 checksums to the **Actions** tab and automatically publish the **v1.0.1 GitHub Release**.

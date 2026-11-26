@@ -161,12 +161,12 @@ private suspend fun Context.findLegacyEndpoints(): List<TvAddress> {
     val local = tvLocalLink() ?: throw IllegalStateException("Connect to the TV’s Wi-Fi or Ethernet network, or enter its address.")
     val candidates = localTvCandidates(local.address, local.prefix)
     return coroutineScope {
-        candidates.chunked(16).flatMap { group ->
+        candidates.chunked(32).flatMap { group ->
             group.map { host ->
                 async(Dispatchers.IO) {
                     try {
                         local.network.socketFactory.createSocket().use {
-                            it.connect(InetSocketAddress(host, 5555), 180)
+                            it.connect(InetSocketAddress(host, 5555), 450)
                             TvAddress(host, 5555)
                         }
                     } catch (cancel: CancellationException) {
@@ -192,6 +192,9 @@ internal fun BridgeActivity.connectionPicker(after: Panel = Panel.DASHBOARD) {
         val status = text("", 13, muted)
         fun showEndpoint(name: String, address: TvAddress, pairing: Boolean = false) {
             if (!devices.add(address to pairing)) return
+            if (status.text.startsWith("No TVs found")) {
+                status.text = "Choose your TV. Approve debugging on the TV if prompted."
+            }
             tiles(matches, 1, Tile(name, Mark.TV, address.toString()) {
                 popup.dismiss()
                 if (pairing) connectDialog(
@@ -208,12 +211,12 @@ internal fun BridgeActivity.connectionPicker(after: Panel = Panel.DASHBOARD) {
                     try {
                         val addresses = kotlinx.coroutines.withContext(Dispatchers.IO) { findLegacyEndpoints() }
                         if (popup.isShowing) {
-                            status.text = if (addresses.isEmpty()) "No TVs found. Enter the IP address shown on the TV."
-                                else "Choose your TV. Approve debugging on the TV if prompted."
                             for (address in addresses) {
                                 val label = known.firstOrNull { it.address == address }?.model ?: "TV at ${address.host}"
                                 showEndpoint(label, address)
                             }
+                            status.text = if (devices.isEmpty()) "No TVs found. Enter the IP address shown on the TV."
+                                else "Choose your TV. Approve debugging on the TV if prompted."
                         }
                     } catch (cancel: CancellationException) {
                         throw cancel

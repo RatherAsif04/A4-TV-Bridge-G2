@@ -354,7 +354,8 @@ internal class TvConnection private constructor(
         fun configureIdentity(directory: File) {
             if (identityReady) return
             val retainedKey = File(directory, "keys/adbkey.pem")
-            val key = retainedKey.takeIf(File::isFile) ?: File(directory, "a4-identity.pem")
+            val key = retainedKey.takeIf { it.isFile && it.length() > 0L }
+                ?: File(directory, "a4-identity.pem").also { if (it.isFile && it.length() == 0L) it.delete() }
             KadbCert.configure(OkioFilePrivateKeyStore(key.toOkioPath()))
             identityReady = true
         }
