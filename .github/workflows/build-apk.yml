@@ -90,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-apks
-          cp app/build/outputs/apk/debug/app-debug.apk release-apks/A4-TV-Bridge-1.0.1-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-apks/A4-TV-Bridge-1.4.0-debug.apk
 
           SIGNED_RELEASE=false
           if [ -n "${SIGNING_KEY_BASE64:-}" ] && [ -n "${SIGNING_STORE_PASSWORD:-}" ] && [ -n "${SIGNING_KEY_ALIAS:-}" ]; then
@@ -120,15 +120,15 @@ jobs:
               --ks-key-alias "$SIGNING_KEY_ALIAS" \
               --ks-pass env:KS_PASS \
               --key-pass env:KEY_PASS \
-              --out release-apks/A4-TV-Bridge-1.0.1-release.apk \
+              --out release-apks/A4-TV-Bridge-1.4.0-release.apk \
               app/build/outputs/apk/release/app-release-unsigned.apk
 
             rm -f release-apks/*.idsig
-            "$APKSIGNER" verify --print-certs release-apks/A4-TV-Bridge-1.0.1-release.apk
+            "$APKSIGNER" verify --print-certs release-apks/A4-TV-Bridge-1.4.0-release.apk
             SIGNED_RELEASE=true
           else
             echo "Signing secrets not configured; keeping unsigned release APK."
-            cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.0.1-release-unsigned.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.4.0-release-unsigned.apk
           fi
 
           echo "SIGNED_RELEASE=$SIGNED_RELEASE" >> "$GITHUB_ENV"
@@ -138,7 +138,7 @@ jobs:
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: A4-TV-Bridge-1.0.1-APKs
+          name: A4-TV-Bridge-1.4.0-APKs
           path: release-apks/*
 
       - name: Publish GitHub Release (on main push)
@@ -146,39 +146,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.1"
-          TITLE="A4 TV Bridge 1.0.1 (Theme & Feature Fixes)"
+          TAG="v1.4.0"
+          TITLE="A4 TV Bridge 1.4.0 (Clean-Room Feature Release)"
           if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
-            INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.0.1-release.apk` directly on Android phones or tablets (signed with the official release keystore).'
+            INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.4.0-release.apk` directly on Android phones or tablets (signed with the official release keystore).'
           else
-            INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.0.1-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
+            INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.4.0-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
           fi
           NOTES=$(cat <<EOF
-          ## A4 TV Bridge 1.0.1 — Fixed Build
-          Built automatically from source via GitHub Actions.
+          ## A4 TV Bridge 1.4.0 (Build 11) — Full Clean-Room Feature Release
+          Authored and licensed under **RatherAsif04 (MIT License)**. Built automatically from source via GitHub Actions.
 
-          ### Theme & UI Fixes
-          - Replaced square white system \`AlertDialog\` menus (\`Other TV types\`, \`Block Ads\`, \`Record TV screen\`, \`Change TV\`, app/file/permission menus) with rounded themed bottom sheets.
-          - Styled confirmation and input dialogs with rounded themed surfaces and non-all-caps buttons in both Light and Dark modes.
-          - Fixed stale "The TV could not be read." notice persisting on the Welcome screen after disconnect and styled status banners as tap-to-dismiss cards.
-          - Fixed duplicate "Command" label/hint and rounded input styling in \`ADB Shell / Terminal\`.
-          - Refined bottom navigation dock spacing, rounded Dashboard storage progress bar, and flush-aligned CPU/RAM/Network metric cards.
-          - Fixed Dark Mode contrast across dialogs (\`BridgeDialogDark\`), window background, and \`Clean Up TV\` dropdown.
+          ### New 1.4.0 Features
+          - **Home Screen & Theme Studio**: Switch installed TV launchers, install custom launcher APKs, and push clean-room procedural 1080p theme wallpapers (\`Default Midnight\`, \`Aurora Borealis\`, \`Frosted Glass\`, \`Dusk Peaks\`) + config JSON directly to your TV.
+          - **Enhanced Device Info Diagnostics**: Added Wi-Fi/Ethernet link speed, band, and signal details plus per-app / shared-UID network traffic breakdown (\`xt_qtaguid\` + \`dumpsys netstats\` fallback) and privacy-sanitized **Share Device Info** reports.
+          - **App Brand Badges**: Color-coded clean-room visual badges for popular TV apps across the App Manager.
+          - **Clean Up TV Upgrades**: Added inline per-app remarks on suggestion cards and extended safety guards to protect \`setupwraith\` / \`setupwizard\` packages alongside active home and keyboard apps.
+          - **Private DNS Ad Blocking**: Added 1-tap \`AdGuard DNS\` and \`Mullvad Adblock DNS\` presets plus \`Turn off Private DNS\`.
 
-          ### Feature & ADB Fixes
-          - Upgraded \`kadb\` to \`2.1.4\` to resolve Android Conscrypt "Only RSA private keys with CRT parameters are supported" connection errors on modern devices.
-          - Added 1-tap \`AdGuard DNS\` and \`Mullvad Adblock DNS\` presets plus \`Turn off Private DNS\` in \`Block Ads\`.
-          - Replaced Toybox-incompatible \`mv -n\` and \`realpath\` with portable \`mv --\` and \`readlink -f\` fallback for Android 8–12 TVs.
-          - Added non-blocking \`Channel\` input queue for rapid D-pad / Touchpad / Screen Mirror gestures and preserved ADB connection across rotation/theme changes.
+          ### Theme, UI & ADB Fixes
+          - Replaced square system \`AlertDialog\` menus with rounded themed bottom sheets and styled confirmation/input popups in Light and Dark modes.
+          - Fixed stale disconnect error banners, duplicate \`Command\` field hints, rounded storage progress bar, flush metric cards, and bottom dock alignment.
+          - Uses \`kadb 2.1.4\` (resolves Android Conscrypt RSA CRT key errors), portable Toybox file commands, non-blocking \`Channel\` remote input queue, and verified SHA-256 1-Click App Install.
 
           $INSTALL_NOTE
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-apks/* --clobber
-            gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release.apk.idsig -y >/dev/null 2>&1 || true
+            gh release delete-asset "$TAG" A4-TV-Bridge-1.4.0-release.apk.idsig -y >/dev/null 2>&1 || true
             if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
-              gh release delete-asset "$TAG" A4-TV-Bridge-1.0.1-release-unsigned.apk -y >/dev/null 2>&1 || true
+              gh release delete-asset "$TAG" A4-TV-Bridge-1.4.0-release-unsigned.apk -y >/dev/null 2>&1 || true
             fi
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
           else

@@ -68,7 +68,7 @@ internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
         Triple("TV Care", Mark.CARE, Panel.CARE)
     )
     val library = setOf(Panel.LIBRARY, Panel.APPS, Panel.FILES, Panel.INSTALL, Panel.SEND)
-    val care = setOf(Panel.CARE, Panel.CLEAN, Panel.CHECK, Panel.RESTORE, Panel.SPACE, Panel.INFO)
+    val care = setOf(Panel.CARE, Panel.CLEAN, Panel.CHECK, Panel.RESTORE, Panel.SPACE, Panel.INFO, Panel.HOME)
     val selected = when (current) {
         in library -> Panel.LIBRARY
         in care -> Panel.CARE

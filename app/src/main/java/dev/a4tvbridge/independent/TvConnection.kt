@@ -176,6 +176,27 @@ internal class TvConnection private constructor(
         }
     }
 
+    fun uploadOverwrite(folder: String, name: String, input: File) {
+        val safeFolder = verifiedFolder(folder)
+        val destination = shellText(TvPath.child(safeFolder, name))
+        val temporary = "$safeFolder/.a4-${UUID.randomUUID()}.part"
+        val staged = shellText(temporary)
+        try {
+            synchronized(commandLock) { client.push(input, temporary) }
+            checked("mv -f -- $staged $destination")
+        } finally {
+            runCatching { checked("rm -f $staged") }
+        }
+    }
+
+    fun scanMediaFile(path: String) {
+        val safe = TvPath.child(path.substringBeforeLast('/'), path.substringAfterLast('/'))
+        val target = shellText("file://$safe")
+        runCatching {
+            command("am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d $target >/dev/null 2>&1 || true")
+        }
+    }
+
     private fun packages(flag: String = "") = checked("pm list packages --user 0 $flag")
         .lineSequence().mapNotNull { it.trim().takeIf { text -> text.startsWith("package:") }?.substringAfter(':') }
         .toSet()
@@ -236,7 +257,8 @@ internal class TvConnection private constructor(
         val isHome = '/' in home.text && home.text.lineSequence().any { it.startsWith("$id/") }
         val isKeyboard = keyboard.status == 0 && keyboard.text.startsWith("$id/")
         return isHome || isKeyboard ||
-            id.contains("tvinput", true) || id.contains("bluetooth", true) || id.contains("remote", true)
+            id.contains("tvinput", true) || id.contains("bluetooth", true) || id.contains("remote", true) ||
+            id.contains("setupwraith", true) || id.contains("setupwizard", true)
     }
 
     fun togglePackage(name: String, enabled: Boolean) {
@@ -310,6 +332,20 @@ internal class TvConnection private constructor(
         return MemoryBreakdown("RSS estimate", parseProcessRss(command("ps -A -o RSS,NAME").text))
     }
 
+    fun wifiSummary(): WifiSnapshot {
+        val raw = command("(dumpsys wifi 2>/dev/null | grep -iE 'mWifiInfo|Link speed|linkSpeed|Frequency|freq|RSSI' | head -n 12; ip link show eth0 2>/dev/null || true)").text
+        return parseWifiSnapshot(raw)
+    }
+
+    fun networkByApp(): List<AppTraffic> {
+        val uidMap = parseUidPackages(command("pm list packages -U --user 0 2>/dev/null || true").text)
+        val qtaguid = command("cat /proc/net/xt_qtaguid/stats 2>/dev/null || true").text
+        val legacy = parseQtaguidTraffic(qtaguid, uidMap)
+        if (legacy.isNotEmpty()) return legacy
+        val netstats = command("dumpsys netstats --uid 2>/dev/null || dumpsys netstats 2>/dev/null || true").text
+        return parseNetstatsUidTraffic(netstats, uidMap)
+    }
+
     fun readDns() = listOf("private_dns_mode", "private_dns_specifier").map {
         checked("settings get global $it").takeUnless { value -> value == "null" }.orEmpty()
     }
@@ -335,6 +371,19 @@ internal class TvConnection private constructor(
     fun homeOptions(): List<String> {
         return command("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME")
             .text.lineSequence().map(String::trim).filter { it.matches(Regex("[.a-zA-Z0-9_]+/[.a-zA-Z0-9_]+")) }.distinct().toList()
+    }
+
+    fun activeHomeActivity(): String? {
+        return command("cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true")
+            .text.lineSequence().map(String::trim).lastOrNull { it.matches(Regex("[.a-zA-Z0-9_]+/[.a-zA-Z0-9_]+")) }
+    }
+
+    fun setHomeActivity(component: String): Boolean {
+        require(component.matches(Regex("[.a-zA-Z0-9_]+/[.a-zA-Z0-9_]+"))) { "Invalid launcher component." }
+        val result = command("cmd package set-home-activity --user 0 ${shellText(component)} 2>&1")
+        if (result.status == 0 && !result.text.contains("Error", ignoreCase = true)) return true
+        homeSettings()
+        return false
     }
 
     fun restart() {

@@ -164,9 +164,31 @@ internal fun BridgeActivity.apps() {
         for (app in matching) {
             val status = if (!app.enabled) "Disabled" else if (app.id in running) "Running" else ""
             val nickname = displayName(app.id)
-            tiles(list, 1, Tile(nickname, Mark.APPS, listOf(app.id, status).filter(String::isNotEmpty).joinToString(" · ")) {
-                packageOptions(app)
-            })
+            val detail = listOf(app.id, status).filter(String::isNotEmpty).joinToString(" · ")
+            val entry = row().apply {
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(ripple),
+                    card(field, corner, outlined = true),
+                    null
+                )
+                minimumHeight = px(64)
+                setPadding(px(12), px(10), px(12), px(10))
+                isFocusable = true
+                isClickable = true
+                contentDescription = nickname
+                setOnClickListener { packageOptions(app) }
+            }
+            entry.addView(appBadge(app.id), LinearLayout.LayoutParams(px(36), px(36)))
+            val copy = column().apply {
+                addView(text(nickname, 15, bold = true))
+                addView(text(detail, 11, muted, true).apply {
+                    letterSpacing = .03f
+                    setPadding(0, px(3), 0, 0)
+                })
+            }
+            entry.addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(12) })
+            entry.addView(text("›", 20, muted), LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { marginStart = px(6) })
+            list.addView(entry, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(9) })
         }
     }
     val tabStrip = row().apply {

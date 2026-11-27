@@ -88,4 +88,45 @@ class ParsersTest {
         assertFalse(TvPath.validName("side/path"))
         assertEquals("'name'\"'\"'s video'", shellText("name's video"))
     }
+
+    @Test fun parsesWifiSnapshotAndAppTrafficFormats() {
+        val wifi = parseWifiSnapshot("mWifiInfo SSID: \"HomeNet\", RSSI: -54, Link speed: 866Mbps, Frequency: 5180MHz")
+        assertEquals("Wi-Fi", wifi.transport)
+        assertEquals(866, wifi.linkSpeedMbps)
+        assertEquals(5180, wifi.frequencyMhz)
+        assertEquals(-54, wifi.rssiDbm)
+        assertEquals("5 GHz (5180 MHz)", wifi.bandLabel)
+
+        val eth = parseWifiSnapshot("2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500")
+        assertEquals("Ethernet", eth.transport)
+
+        val uids = parseUidPackages("package:org.smarttube.stable uid:10123\npackage:com.google.android.youtube.tv uid:10124")
+        val qtaguid = parseQtaguidTraffic(
+            "idx iface acct_tag_hex uid_tag_int cnt_set rx_bytes rx_packets tx_bytes tx_packets\n" +
+                "1 lo 0x0 10123 0 99999 10 99999 10\n" +
+                "2 wlan0 0x0 10123 0 5000 5 1000 2\n" +
+                "3 wlan0 0x0 10124 0 2000 2 500 1",
+            uids
+        )
+        assertEquals(2, qtaguid.size)
+        assertEquals("Stable", qtaguid[0].label)
+        assertEquals(6000L, qtaguid[0].totalBytes)
+
+        val netstats = parseNetstatsUidTraffic(
+            "ident=[{type=WIFI}] uid=10124 set=DEFAULT\n  st=1700000 rb=8000 rp=4 tb=2000 tp=2",
+            uids
+        )
+        assertEquals(1, netstats.size)
+        assertEquals("Youtube", netstats[0].label)
+        assertEquals(10000L, netstats[0].totalBytes)
+    }
+
+    @Test fun resolvesAppBadgesAndThemeConfigs() {
+        assertEquals("ST", AppBrandRegistry.resolve("org.smarttube.stable").monogram)
+        assertEquals("JF", AppBrandRegistry.resolve("org.jellyfin.androidtv").monogram)
+        assertEquals("YT", AppBrandRegistry.resolve("com.google.android.youtube.tv").monogram)
+        val json = themeConfigJson(HomeThemePreset.AURORA)
+        assertTrue(json.contains("\"aurora\""))
+        assertTrue(json.contains("RatherAsif04"))
+    }
 }

@@ -70,7 +70,7 @@ internal fun BridgeActivity.care() {
     tiles(content, 1,
         Tile("Device Info", Mark.INFO) { show(Panel.INFO) },
         Tile("ADB Shell / Terminal", Mark.SHELL) { show(Panel.SHELL) },
-        Tile("Home screen", Mark.HOME) { tvTask({ homeSettings() }) { report("Home settings opened on the TV.") } }
+        Tile("Home screen", Mark.HOME, "Launchers & themes") { show(Panel.HOME) }
     )
 }
 
@@ -208,10 +208,13 @@ internal fun BridgeActivity.cleanup() {
             suggestions.mapNotNull { item -> current[item.id]?.let { item to it } }
         }) { matches ->
             profiles.removeAllViews()
-            profiles.addView(text("${matches.size} suggestions found on this TV", 17, bold = true))
+            profiles.addView(text("${matches.size} suggestions found on this TV", 17, bold = true).apply {
+                setPadding(0, px(8), 0, px(10))
+            })
             for ((item, state) in matches) {
-                val caption = if (state.enabled) item.id else "${item.id} · Disabled"
-                profiles.addView(button(caption) {
+                val statusLabel = if (state.enabled) "" else "Disabled"
+                val detail = listOf(item.id, statusLabel, item.note).filter(String::isNotBlank).joinToString(" · ")
+                tiles(profiles, 1, Tile(displayName(item.id), Mark.CLEAN, detail, selected = !state.enabled) {
                     val action = if (state.enabled) "Turn off" else "Turn back on"
                     val operation = if (state.enabled) "Turning it off hides it and stops it from running. You can turn it back on from Restore."
                         else "Turn this app back on for the current TV user."
@@ -229,7 +232,7 @@ internal fun BridgeActivity.cleanup() {
                             report(if (state.enabled) "Cleaned by A4 TV Bridge" else "App restored.")
                         }
                     }
-                }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+                })
             }
         }
     }

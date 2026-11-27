@@ -40,7 +40,10 @@ internal fun BridgeActivity.deviceInfo() {
     var lastReading: DeviceReading? = null
     var timestamp = 0L
     var processesAt = 0L
+    var networkAt = 0L
     var readingMemory: MemoryBreakdown? = null
+    var wifiInfo: WifiSnapshot? = null
+    var appTraffic: List<AppTraffic>? = null
     var coreValues = emptyList<Pair<String, Int?>>()
     var reportViews: MonitorViews? = null
 
@@ -54,7 +57,7 @@ internal fun BridgeActivity.deviceInfo() {
             tab.background = if (active) card(tint, 10, false) else null
             tab.isSelected = active
         }
-        reportViews?.show(lastReading, points, coreValues, readingMemory)
+        reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, appTraffic)
     }
 
     for (tab in MonitorPage.entries) {
@@ -82,17 +85,27 @@ internal fun BridgeActivity.deviceInfo() {
         }
         lastReading = sample
         timestamp = now
-        reportViews?.show(sample, points, coreValues, readingMemory)
+        if (wifiInfo == null) {
+            wifiInfo = withContext(Dispatchers.IO) { tv.wifiSummary() }
+        }
+        reportViews?.show(sample, points, coreValues, readingMemory, wifiInfo, appTraffic)
         if (selection == MonitorPage.MEMORY && now - processesAt >= 5000) {
             processesAt = now
             readingMemory = withContext(Dispatchers.IO) { tv.processMemory() }
-            reportViews?.show(lastReading, points, coreValues, readingMemory)
+            reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, appTraffic)
+        }
+        if (selection == MonitorPage.NETWORK && now - networkAt >= 5000) {
+            networkAt = now
+            val (wifi, traffic) = withContext(Dispatchers.IO) { tv.wifiSummary() to tv.networkByApp() }
+            wifiInfo = wifi
+            appTraffic = traffic
+            reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, appTraffic)
         }
     }
 }
 
 private class MonitorViews(
-    val show: (DeviceReading?, Collection<MonitorPoint>, List<Pair<String, Int?>>, MemoryBreakdown?) -> Unit
+    val show: (DeviceReading?, Collection<MonitorPoint>, List<Pair<String, Int?>>, MemoryBreakdown?, WifiSnapshot?, List<AppTraffic>?) -> Unit
 )
 
 private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout, tv: TvConnection): MonitorViews {
@@ -148,9 +161,15 @@ private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout,
     val subheading = outlinedCard()
     val extra = text("", 14, muted)
     val processes = column()
+    var shareSummary = ""
     if (section == MonitorPage.MEMORY) {
         pane.addView(subheading)
         subheading.addView(text("Memory by process group", 16, bold = true))
+        subheading.addView(extra)
+        subheading.addView(processes)
+    } else if (section == MonitorPage.NETWORK) {
+        pane.addView(subheading)
+        subheading.addView(text("Traffic by app or shared UID", 16, bold = true))
         subheading.addView(extra)
         subheading.addView(processes)
     } else if (section == MonitorPage.OVERVIEW) {
@@ -158,8 +177,11 @@ private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout,
         val footer = row()
         footer.addView(text("About this TV", 16, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
         footer.addView(textButton("Share Device Info") {
+            val report = shareSummary.ifBlank {
+                "A4 TV Bridge\nModel: ${tv.model}\nAndroid: ${tv.androidVersion}\n${extra.text}"
+            }
             val share = Intent(Intent.ACTION_SEND).setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, "A4 TV Bridge\nModel: ${tv.model}\nAndroid: ${tv.androidVersion}\n${extra.text}")
+                .putExtra(Intent.EXTRA_TEXT, report)
             startActivity(Intent.createChooser(share, "Share Device Info"))
         })
         subheading.addView(footer)
@@ -167,7 +189,8 @@ private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout,
     }
 
     var lastList: MemoryBreakdown? = null
-    return MonitorViews { reading, series, cores, memory ->
+    var lastTraffic: List<AppTraffic>? = null
+    return MonitorViews { reading, series, cores, memory, wifi, trafficRows ->
         val point = series.lastOrNull()
         if (rates.isNotEmpty()) {
             rates[0].text = point?.incoming?.let { "${formatBytes(it)}/s" } ?: "—"
@@ -183,7 +206,26 @@ private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout,
                 chart.update(traffic, listOf(accent, orange), null)
                 facts.visibility = View.GONE
                 val uptime = reading?.uptimeSeconds?.let { "${it / 3600} h ${it / 60 % 60} min" } ?: "—"
-                extra.text = "${tv.model}   ·   Android ${tv.androidVersion}\nUptime $uptime"
+                val linkDesc = listOfNotNull(
+                    wifi?.transport,
+                    wifi?.bandLabel,
+                    wifi?.linkSpeedMbps?.let { "$it Mbps" }
+                ).joinToString(" · ")
+                extra.text = buildString {
+                    append("${tv.model}   ·   Android ${tv.androidVersion}\nUptime $uptime")
+                    if (linkDesc.isNotBlank()) append("\nNetwork $linkDesc")
+                }
+                val diskUsed = reading?.diskTotal?.let { total -> reading.diskFree?.let { total - it } }
+                shareSummary = buildString {
+                    appendLine("A4 TV Bridge — Device Info")
+                    appendLine("Model: ${tv.model}")
+                    appendLine("Android: ${tv.androidVersion}")
+                    appendLine("Uptime: $uptime")
+                    if (cores.isNotEmpty()) appendLine("CPU cores: ${cores.size} (current ${percent(point?.cpu)})")
+                    appendLine("Memory: ${formatBytes(used)} / ${formatBytes(reading?.ramTotal)} (${percent(reading?.ramUsage)})")
+                    appendLine("Storage: ${formatBytes(diskUsed)} / ${formatBytes(reading?.diskTotal)} (${percent(reading?.diskUsage)})")
+                    if (linkDesc.isNotBlank()) appendLine("Link: $linkDesc")
+                }.trim()
             }
             MonitorPage.CPU -> {
                 metric.text = percent(point?.cpu)
@@ -225,7 +267,36 @@ private fun BridgeActivity.buildReport(section: MonitorPage, pane: LinearLayout,
             }
             MonitorPage.NETWORK -> {
                 chart.update(traffic, listOf(accent, orange), null)
-                facts.text = "Since boot     ↓ ${formatBytes(reading?.received)}    ↑ ${formatBytes(reading?.transmitted)}"
+                val wifiLine = listOfNotNull(
+                    wifi?.transport,
+                    wifi?.bandLabel,
+                    wifi?.linkSpeedMbps?.let { "$it Mbps" },
+                    wifi?.rssiDbm?.let { "$it dBm" }
+                ).joinToString("  ·  ")
+                facts.text = buildString {
+                    append("Since boot     ↓ ${formatBytes(reading?.received)}    ↑ ${formatBytes(reading?.transmitted)}")
+                    if (wifiLine.isNotBlank()) append("\nConnection     $wifiLine")
+                }
+                extra.text = when {
+                    trafficRows == null -> "Reading app-level network stats…"
+                    trafficRows.isEmpty() -> "App-level network data is unavailable on this TV firmware."
+                    else -> "Cumulative transfer reported by Android per app or shared UID."
+                }
+                if (trafficRows != lastTraffic) {
+                    lastTraffic = trafficRows
+                    processes.removeAllViews()
+                    for (entry in trafficRows.orEmpty().take(12)) {
+                        processes.addView(rule())
+                        val line = row().apply { minimumHeight = px(48) }
+                        val item = column().apply {
+                            addView(text(entry.label, 14, bold = true))
+                            addView(text("↓ ${formatBytes(entry.rxBytes)}  ·  ↑ ${formatBytes(entry.txBytes)}", 11, muted, true))
+                        }
+                        line.addView(item, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+                        line.addView(text(formatBytes(entry.totalBytes), 15, bold = true))
+                        processes.addView(line)
+                    }
+                }
             }
         }
     }

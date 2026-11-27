@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 internal enum class Panel {
     DASHBOARD, LIBRARY, APPS, FILES, SHELL, CARE, CLEAN, CHECK, RESTORE, SPACE, SEND,
-    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE
+    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME
 }
 internal val releaseRoot = "https://github.com/RatherAsif04/A4-TV-Bridge-G2"
 
@@ -252,6 +252,7 @@ class BridgeActivity : Activity() {
             Panel.INFO -> deviceInfo()
             Panel.INSTALL -> installPage()
             Panel.APPEARANCE -> appearancePage()
+            Panel.HOME -> homeScreenPage()
         }
     }
 

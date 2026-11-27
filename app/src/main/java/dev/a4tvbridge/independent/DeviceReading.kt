@@ -115,3 +115,109 @@ private fun groupProcessMemory(entries: Sequence<Pair<String, Long>>): List<Proc
     entries.groupBy { it.first.substringBefore(':') }.map { (group, rows) ->
         ProcessMemory(group, rows.sumOf { it.second }, rows.size)
     }.sortedByDescending(ProcessMemory::kib)
+
+internal data class WifiSnapshot(
+    val transport: String,
+    val linkSpeedMbps: Int? = null,
+    val frequencyMhz: Int? = null,
+    val rssiDbm: Int? = null
+) {
+    val bandLabel: String?
+        get() = frequencyMhz?.let {
+            when {
+                it in 2400..2500 -> "2.4 GHz ($it MHz)"
+                it in 4900..5900 -> "5 GHz ($it MHz)"
+                it in 5925..7125 -> "6 GHz ($it MHz)"
+                else -> "$it MHz"
+            }
+        }
+}
+
+internal data class AppTraffic(val label: String, val rxBytes: Long, val txBytes: Long) {
+    val totalBytes get() = rxBytes + txBytes
+}
+
+internal fun parseWifiSnapshot(input: String): WifiSnapshot {
+    val hasEth = Regex("""\beth\d+\b.*\bUP\b|\beth\d+.*LOWER_UP""").containsMatchIn(input)
+    val speed = Regex("""(?:Link speed|linkSpeed|txLinkSpeedMbps)[:=\s]+(\d+)""", RegexOption.IGNORE_CASE)
+        .find(input)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+    val freq = Regex("""(?:Frequency|freq)[:=\s]+(\d{4})""", RegexOption.IGNORE_CASE)
+        .find(input)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 2400..7200 }
+    val rssi = Regex("""(?:RSSI|rssi)[:=\s]+(-\d+)""", RegexOption.IGNORE_CASE)
+        .find(input)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in -120..-1 }
+    val transport = when {
+        freq != null || speed != null || rssi != null -> "Wi-Fi"
+        hasEth -> "Ethernet"
+        else -> "Local network"
+    }
+    return WifiSnapshot(transport, speed, freq, rssi)
+}
+
+internal fun parseUidPackages(input: String): Map<Int, List<String>> {
+    val map = mutableMapOf<Int, MutableList<String>>()
+    val pattern = Regex("""^package:([A-Za-z0-9_.]+)\s+uid:(\d+)$""")
+    for (line in input.lineSequence()) {
+        val match = pattern.matchEntire(line.trim()) ?: continue
+        val pkg = match.groupValues[1]
+        val uid = match.groupValues[2].toIntOrNull() ?: continue
+        map.getOrPut(uid) { mutableListOf() }.add(pkg)
+    }
+    return map
+}
+
+internal fun parseQtaguidTraffic(input: String, uidPackages: Map<Int, List<String>>): List<AppTraffic> {
+    val totals = mutableMapOf<Int, Pair<Long, Long>>()
+    for (line in input.lineSequence()) {
+        val parts = line.trim().split(Regex("\\s+"))
+        if (parts.size < 8 || parts[0] == "idx") continue
+        if (parts[1] == "lo") continue
+        val uid = parts[3].toIntOrNull() ?: continue
+        val rx = parts[5].toLongOrNull() ?: continue
+        val tx = parts[7].toLongOrNull() ?: continue
+        val prev = totals[uid] ?: (0L to 0L)
+        totals[uid] = (prev.first + rx) to (prev.second + tx)
+    }
+    return summarizeUidTraffic(totals, uidPackages)
+}
+
+internal fun parseNetstatsUidTraffic(input: String, uidPackages: Map<Int, List<String>>): List<AppTraffic> {
+    val totals = mutableMapOf<Int, Pair<Long, Long>>()
+    var currentUid: Int? = null
+    val uidRegex = Regex("""\buid=(\d+)\b""")
+    val rbRegex = Regex("""\brb=(\d+)\b""")
+    val tbRegex = Regex("""\btb=(\d+)\b""")
+    for (line in input.lineSequence()) {
+        val uidMatch = uidRegex.find(line)
+        if (uidMatch != null) {
+            currentUid = uidMatch.groupValues[1].toIntOrNull()
+        }
+        val uid = currentUid ?: continue
+        val rb = rbRegex.find(line)?.groupValues?.get(1)?.toLongOrNull()
+        val tb = tbRegex.find(line)?.groupValues?.get(1)?.toLongOrNull()
+        if (rb != null || tb != null) {
+            val prev = totals[uid] ?: (0L to 0L)
+            totals[uid] = (prev.first + (rb ?: 0L)) to (prev.second + (tb ?: 0L))
+        }
+    }
+    return summarizeUidTraffic(totals, uidPackages)
+}
+
+private fun summarizeUidTraffic(
+    totals: Map<Int, Pair<Long, Long>>,
+    uidPackages: Map<Int, List<String>>
+): List<AppTraffic> = totals.entries
+    .filter { it.value.first + it.value.second > 0L }
+    .map { (uid, pair) ->
+        val packages = uidPackages[uid].orEmpty()
+        val label = when {
+            packages.size == 1 -> displayName(packages.first())
+            packages.size > 1 -> "${displayName(packages.first())} (+${packages.size - 1} shared UID)"
+            uid == 0 -> "Android OS (root)"
+            uid == 1000 -> "Android System"
+            uid == 1013 -> "Media Server"
+            else -> "UID $uid"
+        }
+        AppTraffic(label, pair.first, pair.second)
+    }
+    .sortedByDescending(AppTraffic::totalBytes)
+
