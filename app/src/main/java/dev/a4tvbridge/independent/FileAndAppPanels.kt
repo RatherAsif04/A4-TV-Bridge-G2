@@ -257,8 +257,7 @@ private fun BridgeActivity.packageOptions(item: InstalledPackage) {
                         check(!protectForCleanup(id)) { "This app is needed by the TV." }
                         rememberDisabled(this, id)
                     } else {
-                        togglePackage(id, true)
-                        updateRestore(this, id, false)
+                        rememberEnabled(this, id)
                     }
                 }) { refresh() }
             }

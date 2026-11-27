@@ -163,7 +163,8 @@ internal fun BridgeActivity.restoreApps() {
             }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
         }
         if (disabled.isEmpty() && removed.isEmpty()) {
-            list.addView(statusCard("No recorded apps are currently disabled."))
+            list.addView(inlineStatusCard("No recorded apps are currently disabled."),
+                LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
             return@tvTask
         }
         for (app in disabled) {
@@ -177,6 +178,11 @@ internal fun BridgeActivity.restoreApps() {
             }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
         }
     }
+}
+
+private fun BridgeActivity.inlineStatusCard(value: String): TextView = text(value, 16).apply {
+    background = card(radius = corner)
+    setPadding(px(15), px(15), px(15), px(15))
 }
 
 private fun BridgeActivity.roundedProgress(): ProgressBar =
@@ -310,7 +316,8 @@ internal fun BridgeActivity.checkTv() {
     fun runCheck() {
         val activeTv = connection ?: return
         body.removeAllViews()
-        body.addView(statusCard("Checking your TV…"))
+        body.addView(inlineStatusCard("Checking your TV…"),
+            LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
 
         tvTask({
             val installedList = installed()
@@ -666,7 +673,8 @@ internal fun BridgeActivity.cleanup() {
     fun scan() {
         val activeTv = connection ?: return
         body.removeAllViews()
-        body.addView(statusCard("Scanning ${activeTv.model} for bloatware…"))
+        body.addView(inlineStatusCard("Scanning ${activeTv.model} for bloatware…"),
+            LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
 
         tvTask({
             val catalog = cleanupCatalog()
