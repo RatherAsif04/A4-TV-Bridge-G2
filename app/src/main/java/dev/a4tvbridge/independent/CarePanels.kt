@@ -16,11 +16,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Volatile
-private var cachedCleanupCatalog: Map<String, List<CleanupItem>>? = null
+private var cachedCleanupCatalog: CleanupCatalog? = null
 
-internal fun BridgeActivity.cleanupCatalog(): Map<String, List<CleanupItem>> {
+internal fun BridgeActivity.cleanupCatalog(): CleanupCatalog {
     cachedCleanupCatalog?.let { return it }
-    val parsed = LinkedHashMap<String, List<CleanupItem>>()
+    val parsed = LinkedHashMap<String, ParsedProfile>()
     val bundled = runCatching {
         assets.open("profiles.json").bufferedReader().use { org.json.JSONObject(it.readText()) }
     }.getOrNull()
@@ -28,18 +28,37 @@ internal fun BridgeActivity.cleanupCatalog(): Map<String, List<CleanupItem>> {
         val keys = bundled.keys()
         while (keys.hasNext()) {
             val key = keys.next()
-            val items = cleanupEntries(bundled.optString(key, ""))
-            if (items.isNotEmpty()) parsed[key] = items
+            val list = parseProfileList(bundled.optString(key, ""))
+            if (list.disabled.isNotEmpty() || list.kept.isNotEmpty()) parsed[key] = list
         }
     } else {
         for (file in assets.list("profiles").orEmpty().filter { it.endsWith(".txt") }.sorted()) {
             val raw = assets.open("profiles/$file").bufferedReader().use { it.readText() }
-            val items = cleanupEntries(raw)
-            if (items.isNotEmpty()) parsed[file.removeSuffix(".txt")] = items
+            val list = parseProfileList(raw)
+            if (list.disabled.isNotEmpty() || list.kept.isNotEmpty()) parsed[file.removeSuffix(".txt")] = list
         }
     }
-    cachedCleanupCatalog = parsed
-    return parsed
+
+    val meta = LinkedHashMap<String, ProfileMeta>()
+    val bundledMeta = runCatching {
+        assets.open("profiles_meta.json").bufferedReader().use { org.json.JSONObject(it.readText()) }
+    }.getOrNull()
+    if (bundledMeta != null) {
+        val keys = bundledMeta.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val obj = bundledMeta.optJSONObject(key) ?: continue
+            meta[key] = ProfileMeta(
+                tv = obj.optString("tv", "").trim(),
+                os = obj.optString("os", "").trim(),
+                brand = obj.optString("brand", "").trim()
+            )
+        }
+    }
+
+    val catalog = CleanupCatalog(parsed, meta)
+    cachedCleanupCatalog = catalog
+    return catalog
 }
 
 private fun BridgeActivity.previousChanges(tv: TvConnection): Set<String> {
@@ -106,11 +125,11 @@ internal fun BridgeActivity.care() {
     val changes = savedChanges(tv).size
     heading("Cleanup and restore")
     tiles(content, 1,
-        Tile("Clean Up TV", Mark.CLEAN, if (changes > 0) "$changes off · Auto-scan" else "Auto-scan & remove bloatware") { show(Panel.CLEAN) },
-        Tile("Check my TV", Mark.CHECK, "Verify cleaned apps, DNS & health") { show(Panel.CHECK) },
+        Tile("Clean Up TV", Mark.CLEAN, if (changes > 0) "$changes off · CleanYourTV (518 lists)" else "CleanYourTV auto-scan & safety guards") { show(Panel.CLEAN) },
+        Tile("Check my TV", Mark.CHECK, "Detect drift, re-enabled apps & safety") { show(Panel.CHECK) },
         Tile("Free up space", Mark.STORAGE) { show(Panel.SPACE) },
         Tile("Block Ads", Mark.SHIELD) { showDnsOptions() },
-        Tile("Restore", Mark.RESTORE, if (changes > 0) "$changes recorded" else "Turn disabled apps back on") { show(Panel.RESTORE) }
+        Tile("Restore", Mark.RESTORE, if (changes > 0) "$changes recorded" else "Undo cleanup & animation changes") { show(Panel.RESTORE) }
     )
     heading("Device tools")
     tiles(content, 1,
@@ -131,12 +150,32 @@ internal fun BridgeActivity.recordSystemRemoval(tv: TvConnection, id: String, re
 internal fun BridgeActivity.restoreApps() {
     val tv = connection ?: return
     val owner = content
+    val animBackupKey = "anim-before-${tv.serial}"
     heading("Restore")
-    paragraph("Turn apps back on for this TV.")
+    paragraph("Undo Clean Up TV changes: turn disabled apps back on and restore original animation scales.")
     val topActions = column()
     content.addView(topActions)
     val list = column()
     content.addView(list)
+
+    val savedAnim = preferences.getString(animBackupKey, null)
+    if (!savedAnim.isNullOrBlank()) {
+        topActions.addView(button("Restore original TV animation scales") {
+            confirm("Restore animation scales?", "Puts window, transition, and animator scales back to their pre-cleanup values.") {
+                val values = savedAnim.split(',')
+                if (values.size == 3) {
+                    tvTask({
+                        writeAnimationScales(values)
+                        preferences.edit().remove(animBackupKey).apply()
+                    }) {
+                        report("Original animation scales restored.")
+                        refresh()
+                    }
+                }
+            }
+        }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+    }
+
     val removed = preferences.getStringSet("restore-system-${tv.serial}", emptySet()).orEmpty()
     for (id in removed.sorted()) {
         tiles(list, 1, Tile(displayName(id), Mark.RESTORE, "$id · Reinstall system app") {
@@ -153,7 +192,7 @@ internal fun BridgeActivity.restoreApps() {
         if (disabled.size >= 2) {
             topActions.addView(button("Turn all ${disabled.size} apps back on", emphasis = true) {
                 confirm("Restore all ${disabled.size} apps?", "Turns every recorded disabled app back on for this TV.") {
-                    runBatchToggle(tv, disabled.map { CleanupItem(it.id, "") }, enable = true, host = list) { done, skipped ->
+                    runBatchToggle(tv, disabled.map { CleanupItem(it.id, "") }, enable = true, host = list) { done, skipped, _ ->
                         val summary = if (skipped.isEmpty()) "Restored ${done.size} app(s)."
                         else "Restored ${done.size} app(s), ${skipped.size} could not be restored."
                         report(summary)
@@ -162,7 +201,7 @@ internal fun BridgeActivity.restoreApps() {
                 }
             }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
         }
-        if (disabled.isEmpty() && removed.isEmpty()) {
+        if (disabled.isEmpty() && removed.isEmpty() && savedAnim.isNullOrBlank()) {
             list.addView(inlineStatusCard("No recorded apps are currently disabled."),
                 LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
             return@tvTask
@@ -231,18 +270,29 @@ private fun BridgeActivity.appActionRow(
     setOnClickListener { onClick() }
 }
 
+private fun formatItemSubtitle(item: CleanupItem, totalLists: Int): String {
+    val tally = when {
+        item.disabledCount > 0 && item.keptCount > 0 && totalLists > 0 ->
+            "Disabled in ${item.disabledCount}/$totalLists CleanYourTV lists · kept in ${item.keptCount}"
+        item.disabledCount > 0 && totalLists > 0 ->
+            "Disabled in ${item.disabledCount}/$totalLists CleanYourTV lists"
+        else -> ""
+    }
+    return listOf(item.id, tally, item.note).filter(String::isNotBlank).joinToString("\n")
+}
+
 private fun BridgeActivity.runBatchToggle(
     tv: TvConnection,
     items: List<CleanupItem>,
     enable: Boolean,
     host: LinearLayout,
-    onComplete: (List<CleanupItem>, List<String>) -> Unit
+    onComplete: (List<CleanupItem>, List<String>, Boolean) -> Unit
 ) {
     val owner = content
     host.removeAllViews()
     val progressCard = outlinedCard()
-    val title = text(if (enable) "Restoring apps…" else "Applying TV cleanup…", 18, bold = true)
-    val detail = text("Preparing ${items.size} app(s)…", 14, muted).apply { setPadding(0, px(6), 0, px(10)) }
+    val title = text(if (enable) "Restoring apps…" else "Applying CleanYourTV cleanup…", 18, bold = true)
+    val detail = text("Running CleanYourTV safety checks…", 14, muted).apply { setPadding(0, px(6), 0, px(10)) }
     val bar = roundedProgress()
     progressCard.addView(title)
     progressCard.addView(detail)
@@ -250,11 +300,12 @@ private fun BridgeActivity.runBatchToggle(
     host.addView(progressCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
 
     launchSheetTask {
-        val succeeded = mutableListOf<CleanupItem>()
+        val attempted = mutableListOf<CleanupItem>()
         val skipped = mutableListOf<String>()
         val protection = if (!enable) {
             withContext(Dispatchers.IO) { runCatching { tv.cleanupProtection() }.getOrDefault(CleanupProtection()) }
         } else null
+        val plannedIds = items.mapTo(HashSet()) { it.id }
 
         for ((index, item) in items.withIndex()) {
             if (content !== owner || connection !== tv) return@launchSheetTask
@@ -262,8 +313,9 @@ private fun BridgeActivity.runBatchToggle(
             detail.text = "${if (enable) "Turning on" else "Turning off"} $step of ${items.size}\n${displayName(item.id)} (${item.id})"
             bar.progress = ((index * 100) / items.size.coerceAtLeast(1)).coerceIn(0, 100)
 
-            if (!enable && protection != null && protection.isProtected(item.id)) {
-                skipped += "${displayName(item.id)} — kept on (protected TV component)"
+            val reason = if (!enable) protection?.blockReason(item.id, plannedIds) else null
+            if (reason != null) {
+                skipped += "${displayName(item.id)} — $reason"
                 continue
             }
 
@@ -275,21 +327,41 @@ private fun BridgeActivity.runBatchToggle(
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                "${displayName(item.id)} — wouldn't ${if (enable) "turn on" else "turn off"}, so it was left as it was."
+                "${displayName(item.id)} — TV refused to ${if (enable) "turn on" else "turn off"}, left as it was."
             }
 
-            if (outcome == null) succeeded += item else skipped += outcome
+            if (outcome == null) attempted += item else skipped += outcome
             bar.progress = ((step * 100) / items.size.coerceAtLeast(1)).coerceIn(0, 100)
         }
 
+        // CleanYourTV post-run readback verification (`pm list packages -e --user 0`)
+        val verified = if (!enable && attempted.isNotEmpty() && content === owner && connection === tv) {
+            detail.text = "Verifying disabled packages on the TV…"
+            val stillEnabled = withContext(Dispatchers.IO) {
+                runCatching { tv.enabledPackages() }.getOrDefault(emptySet())
+            }
+            val confirmed = mutableListOf<CleanupItem>()
+            for (item in attempted) {
+                if (item.id in stillEnabled) {
+                    skipped += "${displayName(item.id)} — still enabled after readback (firmware did not hold change)."
+                } else {
+                    confirmed += item
+                }
+            }
+            confirmed
+        } else {
+            attempted
+        }
+
         if (content === owner && connection === tv) {
-            onComplete(succeeded, skipped)
+            onComplete(verified, skipped, protection?.adbInsecureWarning == true)
         }
     }
 }
 
 private data class TvCheckReport(
     val match: ProfileMatch,
+    val protection: CleanupProtection,
     val stillOff: List<InstalledPackage>,
     val cameBack: List<InstalledPackage>,
     val remainingBloat: List<CleanupItem>,
@@ -302,6 +374,7 @@ private data class TvCheckReport(
     val homeReverted: Boolean
         get() = !preferredHome.isNullOrBlank() &&
             !activeHome.isNullOrBlank() &&
+            isRealLauncherComponent(preferredHome) &&
             activeHome != preferredHome &&
             activeHome.substringBefore('/') != preferredHome.substringBefore('/')
 }
@@ -316,7 +389,7 @@ internal fun BridgeActivity.checkTv() {
     fun runCheck() {
         val activeTv = connection ?: return
         body.removeAllViews()
-        body.addView(inlineStatusCard("Checking your TV…"),
+        body.addView(inlineStatusCard("Checking your TV against CleanYourTV rules…"),
             LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
 
         tvTask({
@@ -334,9 +407,11 @@ internal fun BridgeActivity.checkTv() {
                 .partition(InstalledPackage::enabled)
 
             val cameBackIds = cameBack.mapTo(HashSet()) { it.id }
+            val plannedIds = match.items.mapTo(HashSet()) { it.id }
             val remaining = match.items.filter { item ->
                 val state = installedById[item.id]
-                state != null && state.enabled && item.id !in cameBackIds && !protection.isProtected(item.id)
+                state != null && state.enabled && item.id !in cameBackIds &&
+                    !protection.isProtected(item.id, plannedIds)
             }
 
             val activeHome = runCatching { activeHomeActivity() }.getOrNull()
@@ -346,6 +421,7 @@ internal fun BridgeActivity.checkTv() {
 
             TvCheckReport(
                 match = match,
+                protection = protection,
                 stillOff = stillOff,
                 cameBack = cameBack,
                 remainingBloat = remaining,
@@ -361,11 +437,11 @@ internal fun BridgeActivity.checkTv() {
 
             val issues = mutableListOf<String>()
             if (checkReport.cameBack.isNotEmpty()) {
-                issues += "• ${checkReport.cameBack.size} cleaned app(s) turned back on"
+                issues += "• ${checkReport.cameBack.size} cleaned app(s) turned back on (drift detected)"
             }
             if (checkReport.remainingBloat.isNotEmpty()) {
-                val label = if (checkReport.stillOff.isNotEmpty()) "new app(s) since your last cleanup"
-                else "bloatware app(s) can be turned off"
+                val label = if (checkReport.stillOff.isNotEmpty()) "new CleanYourTV app(s) since your last cleanup"
+                else "CleanYourTV bloatware app(s) ready to turn off"
                 issues += "• ${checkReport.remainingBloat.size} $label"
             }
             if (checkReport.homeReverted) {
@@ -376,15 +452,15 @@ internal fun BridgeActivity.checkTv() {
             // Overall status banner
             val summaryCard = outlinedCard(fill = if (issues.isEmpty()) tint else field)
             val headline = when {
-                issues.isEmpty() && checkReport.stillOff.isNotEmpty() -> "Cleaned by A4 TV Bridge"
+                issues.isEmpty() && checkReport.stillOff.isNotEmpty() -> "In sync · Cleaned by A4 TV Bridge"
                 issues.isEmpty() -> "Your TV looks clean"
-                else -> "Items need attention"
+                else -> "TV drift detected"
             }
             val subtext = when {
                 issues.isEmpty() && checkReport.stillOff.isNotEmpty() ->
-                    "All ${checkReport.stillOff.size} cleaned app(s) are still off. No extra bloatware found."
+                    "All ${checkReport.stillOff.size} cleaned app(s) stayed off. Matches CleanYourTV with no drift."
                 issues.isEmpty() ->
-                    "No active bloatware from the matched profile was found on this TV."
+                    "No active bloatware from the matched CleanYourTV profile was found on this TV."
                 else -> issues.joinToString("\n")
             }
             summaryCard.addView(text(headline, 19, bold = true))
@@ -393,16 +469,28 @@ internal fun BridgeActivity.checkTv() {
             })
             body.addView(summaryCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
 
-            // One-tap automatic fixes
+            // CleanYourTV ro.adb.secure=0 security advisory
+            if (checkReport.protection.adbInsecureWarning) {
+                val warnCard = outlinedCard()
+                warnCard.addView(text("Security tip: open ADB port (ro.adb.secure=0)", 15, orange, bold = true))
+                warnCard.addView(text(
+                    "This TV accepts network ADB without an Allow prompt. When you finish cleaning up, turn off USB/Network/Wireless debugging on the TV and restart it.",
+                    13,
+                    muted
+                ).apply { setPadding(0, px(4), 0, 0) })
+                body.addView(warnCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+            }
+
+            // One-tap automatic fixes (`check.py --fix`)
             val batchHost = column()
             body.addView(batchHost)
 
             if (checkReport.cameBack.isNotEmpty()) {
                 body.addView(button("Turn off ${checkReport.cameBack.size} app(s) again", emphasis = true) {
-                    runBatchToggle(activeTv, checkReport.cameBack.map { CleanupItem(it.id, "") }, enable = false, host = batchHost) { done, skipped ->
+                    runBatchToggle(activeTv, checkReport.cameBack.map { CleanupItem(it.id, "") }, enable = false, host = batchHost) { done, skipped, _ ->
                         report(
                             if (skipped.isEmpty()) "Turned off ${done.size} app(s) again."
-                            else "Turned off ${done.size} app(s); ${skipped.size} refused to turn off."
+                            else "Turned off ${done.size} app(s); ${skipped.size} kept on."
                         )
                         runCheck()
                     }
@@ -440,7 +528,11 @@ internal fun BridgeActivity.checkTv() {
                 })
                 for (app in checkReport.cameBack) {
                     body.addView(appActionRow(app.id, app.id, "Turn off", selected = true) {
-                        tvTask({ rememberDisabled(this, app.id) }) {
+                        tvTask({
+                            val block = cleanupProtection().blockReason(app.id, setOf(app.id))
+                            check(block == null) { block ?: "Protected TV component." }
+                            rememberDisabled(this, app.id)
+                        }) {
                             report("${displayName(app.id)} turned off.")
                             runCheck()
                         }
@@ -453,14 +545,9 @@ internal fun BridgeActivity.checkTv() {
                 setPadding(0, px(6), 0, px(8))
             })
 
-            val profileSummary = when (checkReport.match.kind) {
-                ProfileMatchKind.EXACT_MODEL -> "Matched ${checkReport.match.profileName}"
-                ProfileMatchKind.BRAND_MATCH -> "Closest ${checkReport.match.profileName}"
-                ProfileMatchKind.MANUAL -> "Profile ${checkReport.match.profileName}"
-                ProfileMatchKind.AUTO_DETECTED -> "Auto-detected for ${activeTv.model}"
-            }
-            val bloatDetail = if (checkReport.remainingBloat.isEmpty()) "$profileSummary · All clean"
-            else "$profileSummary · ${checkReport.remainingBloat.size} active"
+            val profileLabel = checkReport.match.profileTitle ?: checkReport.match.profileName ?: activeTv.model
+            val bloatDetail = if (checkReport.remainingBloat.isEmpty()) "$profileLabel · All clean"
+            else "$profileLabel · ${checkReport.remainingBloat.size} active"
 
             val activeHomeName = checkReport.activeHome?.substringBefore('/')?.let(::displayName) ?: "Default launcher"
             val homeDetail = when {
@@ -486,7 +573,7 @@ internal fun BridgeActivity.checkTv() {
                 Tile("Cleaned apps", Mark.CLEAN, "${checkReport.stillOff.size} still off · ${checkReport.cameBack.size} came back") {
                     show(Panel.RESTORE)
                 },
-                Tile("Bloatware scan", Mark.CHECK, bloatDetail) { show(Panel.CLEAN) },
+                Tile("CleanYourTV scan", Mark.CHECK, bloatDetail) { show(Panel.CLEAN) },
                 Tile("Home screen", Mark.HOME, homeDetail) { show(Panel.HOME) },
                 Tile("Block Ads (Private DNS)", Mark.SHIELD, dnsDetail) { showDnsOptions() },
                 Tile("Storage & memory", Mark.STORAGE, storageDetail) { show(Panel.SPACE) }
@@ -603,34 +690,40 @@ internal fun BridgeActivity.freeSpace() {
     measure()
 }
 
+private data class ProtectedCandidate(val item: CleanupItem, val reason: String)
+
 private data class CleanupScanResult(
     val match: ProfileMatch,
-    val profileNames: List<String>,
+    val catalog: CleanupCatalog,
+    val protection: CleanupProtection,
     val enabledItems: List<CleanupItem>,
     val alreadyOffItems: List<CleanupItem>,
-    val protectedCount: Int
+    val protectedItems: List<ProtectedCandidate>,
+    val animationScales: List<String>
 )
 
 internal fun BridgeActivity.cleanup() {
     val tv = connection ?: return
     val owner = content
     val choiceKey = "profile-${tv.serial}"
+    val animBackupKey = "anim-before-${tv.serial}"
 
     heading("Clean Up TV")
-    paragraph("Debloat app lists are taken from CleanYourTV. Automatically scans your TV and lets you turn off selected apps in one tap.")
+    paragraph("Powered by CleanYourTV (518 tested TV lists & safety guards). Automatically matches your TV, protects boot/Wi-Fi/HDMI/Home packages, and lets you clean in one tap.")
 
     val body = column()
     content.addView(body)
 
-    fun openProfilePicker(profileNames: List<String>, currentName: String?, onPicked: () -> Unit) {
-        showSheet("Choose device profile") { sheet, area ->
+    fun openProfilePicker(catalog: CleanupCatalog, currentName: String?, onPicked: () -> Unit) {
+        val allNames = catalog.profiles.keys.sorted()
+        showSheet("Choose CleanYourTV profile (${allNames.size})") { sheet, area ->
             area.addView(button("Auto-detect my TV", emphasis = currentName == null) {
                 preferences.edit().remove(choiceKey).apply()
                 sheet.dismiss()
                 onPicked()
             }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
 
-            val filter = input("Search ${profileNames.size} TV profiles…").apply {
+            val filter = input("Search brand, model, or codename…").apply {
                 setSingleLine()
                 setPadding(px(12), px(10), px(12), px(10))
                 background = card(field, 12, outlined = true)
@@ -645,15 +738,24 @@ internal fun BridgeActivity.cleanup() {
             fun renderMatches(query: String) {
                 results.removeAllViews()
                 val q = query.trim().lowercase()
-                val shown = if (q.isEmpty()) profileNames.take(60)
-                else profileNames.filter { q in it.lowercase() }.take(80)
+                val shown = if (q.isEmpty()) {
+                    allNames.take(60)
+                } else {
+                    allNames.filter { slug ->
+                        val info = catalog.meta[slug]
+                        q in slug.lowercase() ||
+                            (info != null && (q in info.tv.lowercase() || q in info.brand.lowercase() || q in info.os.lowercase()))
+                    }.take(80)
+                }
                 if (shown.isEmpty()) {
-                    results.addView(text("No profiles match \"$query\".", 14, muted).apply { setPadding(0, px(8), 0, px(8)) })
+                    results.addView(text("No CleanYourTV profiles match \"$query\".", 14, muted).apply { setPadding(0, px(8), 0, px(8)) })
                     return
                 }
                 for (name in shown) {
+                    val info = catalog.meta[name]
+                    val label = if (!info?.tv.isNullOrBlank()) "${info!!.tv}\n$name" else name
                     val isCurrent = name == currentName
-                    results.addView(button(name, emphasis = isCurrent) {
+                    results.addView(button(label, emphasis = isCurrent) {
                         preferences.edit().putString(choiceKey, name).apply()
                         sheet.dismiss()
                         onPicked()
@@ -673,7 +775,7 @@ internal fun BridgeActivity.cleanup() {
     fun scan() {
         val activeTv = connection ?: return
         body.removeAllViews()
-        body.addView(inlineStatusCard("Scanning ${activeTv.model} for bloatware…"),
+        body.addView(inlineStatusCard("Scanning ${activeTv.model} with CleanYourTV (518 lists + safety guards)…"),
             LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
 
         tvTask({
@@ -683,14 +785,18 @@ internal fun BridgeActivity.cleanup() {
             val protection = cleanupProtection()
             val savedProfile = preferences.getString(choiceKey, null)
             val match = autoMatchCleanup(identity, byId.keys, catalog, savedProfile)
+            val animScales = runCatching { readAnimationScales() }.getOrDefault(listOf("1.0", "1.0", "1.0"))
 
             val enabled = mutableListOf<CleanupItem>()
             val alreadyOff = mutableListOf<CleanupItem>()
-            var protectedCount = 0
+            val guarded = mutableListOf<ProtectedCandidate>()
+            val plannedIds = match.items.mapTo(HashSet()) { it.id }
+
             for (item in match.items) {
                 val state = byId[item.id] ?: continue
                 if (state.enabled) {
-                    if (protection.isProtected(item.id)) protectedCount++
+                    val block = protection.blockReason(item.id, plannedIds)
+                    if (block != null) guarded += ProtectedCandidate(item, block)
                     else enabled += item
                 } else {
                     alreadyOff += item
@@ -698,10 +804,12 @@ internal fun BridgeActivity.cleanup() {
             }
             CleanupScanResult(
                 match = match,
-                profileNames = catalog.keys.sorted(),
+                catalog = catalog,
+                protection = protection,
                 enabledItems = enabled,
                 alreadyOffItems = alreadyOff,
-                protectedCount = protectedCount
+                protectedItems = guarded,
+                animationScales = animScales
             )
         }) { scanResult ->
             if (content !== owner || connection !== activeTv) return@tvTask
@@ -709,13 +817,18 @@ internal fun BridgeActivity.cleanup() {
 
             // Summary header card
             val headerCard = outlinedCard(fill = if (scanResult.enabledItems.isEmpty()) tint else field)
+            val tvTitle = scanResult.match.profileTitle ?: scanResult.match.profileName ?: activeTv.model
             val matchTitle = when (scanResult.match.kind) {
-                ProfileMatchKind.EXACT_MODEL -> "Matched profile: ${scanResult.match.profileName}"
-                ProfileMatchKind.BRAND_MATCH -> "Closest profile: ${scanResult.match.profileName}"
-                ProfileMatchKind.MANUAL -> "Selected profile: ${scanResult.match.profileName}"
-                ProfileMatchKind.AUTO_DETECTED -> "Auto-detected for ${activeTv.model}"
+                ProfileMatchKind.EXACT_MODEL -> tvTitle
+                ProfileMatchKind.BRAND_MATCH -> "Closest match: $tvTitle"
+                ProfileMatchKind.MANUAL -> "Selected: $tvTitle"
+                ProfileMatchKind.AUTO_DETECTED -> "Auto-detected via CleanYourTV consensus (${scanResult.match.totalLists} lists)"
             }
-            val matchDetail = buildString {
+            val metaLine = listOfNotNull(
+                scanResult.match.profileName?.let { "Profile: $it" },
+                scanResult.match.profileOs
+            ).joinToString(" · ")
+            val statsLine = buildString {
                 if (scanResult.enabledItems.isNotEmpty()) {
                     append("${scanResult.enabledItems.size} app(s) ready to turn off")
                 } else {
@@ -724,21 +837,69 @@ internal fun BridgeActivity.cleanup() {
                 if (scanResult.alreadyOffItems.isNotEmpty()) {
                     append(" · ${scanResult.alreadyOffItems.size} already off")
                 }
-                if (scanResult.protectedCount > 0) {
-                    append(" · ${scanResult.protectedCount} protected kept on")
+                if (scanResult.protectedItems.isNotEmpty()) {
+                    append(" · ${scanResult.protectedItems.size} kept safe by guards")
                 }
             }
             headerCard.addView(text(matchTitle, 17, bold = true))
-            headerCard.addView(text(matchDetail, 14, muted).apply { setPadding(0, px(4), 0, px(10)) })
+            if (metaLine.isNotBlank()) {
+                headerCard.addView(text(metaLine, 12, accent, bold = true).apply { setPadding(0, px(3), 0, 0) })
+            }
+            headerCard.addView(text(statsLine, 14, muted).apply { setPadding(0, px(4), 0, px(10)) })
 
             val controls = row()
             controls.addView(button("Change profile") {
-                openProfilePicker(scanResult.profileNames, scanResult.match.profileName, ::scan)
+                openProfilePicker(scanResult.catalog, scanResult.match.profileName, ::scan)
             }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
             controls.addView(button("Rescan") { scan() },
                 LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(8) })
             headerCard.addView(controls)
             body.addView(headerCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
+            // CleanYourTV Animation Speedup card
+            val currentAnim = scanResult.animationScales.firstOrNull() ?: "1.0"
+            val animFast = currentAnim == "0.5" || currentAnim == "0" || currentAnim == "0.0"
+            val animCard = outlinedCard()
+            animCard.addView(text("TV animation speed", 15, bold = true))
+            animCard.addView(text(
+                "Current scale: ${scanResult.animationScales.joinToString(" / ")} · CleanYourTV recommends 0.5x for snappier menus (undoable in Restore).",
+                13,
+                muted
+            ).apply { setPadding(0, px(3), 0, px(8)) })
+            val animRow = row()
+            animRow.addView(button("Speed up (0.5x)", emphasis = !animFast) {
+                tvTask({
+                    if (!preferences.contains(animBackupKey)) {
+                        preferences.edit().putString(animBackupKey, readAnimationScales().joinToString(",")).apply()
+                    }
+                    writeAnimationScales(listOf("0.5", "0.5", "0.5"))
+                }) {
+                    report("TV animations set to 0.5x.")
+                    scan()
+                }
+            }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+            animRow.addView(button("Off (0x)") {
+                tvTask({
+                    if (!preferences.contains(animBackupKey)) {
+                        preferences.edit().putString(animBackupKey, readAnimationScales().joinToString(",")).apply()
+                    }
+                    writeAnimationScales(listOf("0", "0", "0"))
+                }) {
+                    report("TV animations turned off.")
+                    scan()
+                }
+            }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(8) })
+            animRow.addView(button("Default (1x)") {
+                tvTask({
+                    writeAnimationScales(listOf("1.0", "1.0", "1.0"))
+                    preferences.edit().remove(animBackupKey).apply()
+                }) {
+                    report("TV animations reset to 1.0x.")
+                    scan()
+                }
+            }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(8) })
+            animCard.addView(animRow)
+            body.addView(animCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
 
             if (scanResult.enabledItems.isEmpty()) {
                 val cleanActions = row()
@@ -748,7 +909,7 @@ internal fun BridgeActivity.cleanup() {
                     LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(8) })
                 body.addView(cleanActions, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
             } else {
-                // Pre-select all detected bloatware automatically
+                // Pre-select all safe detected bloatware automatically
                 val selectedIds = scanResult.enabledItems.mapTo(LinkedHashSet()) { it.id }
                 val primaryBtn = button("", emphasis = true) {}
                 val listContainer = column()
@@ -768,7 +929,7 @@ internal fun BridgeActivity.cleanup() {
                     listContainer.removeAllViews()
                     for (item in scanResult.enabledItems) {
                         val checked = item.id in selectedIds
-                        val subtitle = listOf(item.id, item.note).filter(String::isNotBlank).joinToString("\n")
+                        val subtitle = formatItemSubtitle(item, scanResult.match.totalLists)
                         listContainer.addView(
                             appActionRow(item.id, subtitle, if (checked) "Turn off" else "Keep", selected = checked) {
                                 if (item.id in selectedIds) selectedIds.remove(item.id) else selectedIds.add(item.id)
@@ -786,23 +947,34 @@ internal fun BridgeActivity.cleanup() {
                     val countLabel = if (chosen.size == 1) "1 app" else "${chosen.size} apps"
                     confirm(
                         "Turn off $countLabel?",
-                        "Turn off hides the app and stops it. One tap brings it back from Restore."
+                        "CleanYourTV safety guards protect boot, Wi-Fi, Home, HDMI inputs, and Settings. You can undo anytime in Restore."
                     ) {
-                        runBatchToggle(activeTv, chosen, enable = false, host = body) { turnedOff, skipped ->
+                        runBatchToggle(activeTv, chosen, enable = false, host = body) { turnedOff, skipped, adbWarn ->
                             body.removeAllViews()
                             val doneCard = outlinedCard(fill = tint)
                             doneCard.addView(text("Cleanup complete", 20, bold = true))
                             doneCard.addView(text(
-                                "Turned off ${turnedOff.size} app(s)." +
-                                    if (skipped.isNotEmpty()) "\n${skipped.size} app(s) were left on." else "",
+                                "Verified ${turnedOff.size} app(s) turned off." +
+                                    if (skipped.isNotEmpty()) "\n${skipped.size} app(s) were kept on." else "",
                                 15,
                                 ink
                             ).apply { setPadding(0, px(6), 0, 0) })
                             body.addView(doneCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
 
+                            if (adbWarn) {
+                                val warnCard = outlinedCard()
+                                warnCard.addView(text("Security tip: turn off ADB debugging when done", 15, orange, bold = true))
+                                warnCard.addView(text(
+                                    "This TV reports ro.adb.secure=0 (port 5555 accepts commands without an Allow prompt). Turn off USB/Network/Wireless debugging on the TV and restart it once finished.",
+                                    13,
+                                    muted
+                                ).apply { setPadding(0, px(4), 0, 0) })
+                                body.addView(warnCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+                            }
+
                             if (skipped.isNotEmpty()) {
                                 val skippedCard = outlinedCard()
-                                skippedCard.addView(text("Left unchanged", 15, bold = true))
+                                skippedCard.addView(text("Kept on / left unchanged", 15, bold = true))
                                 skippedCard.addView(text(skipped.joinToString("\n"), 13, muted).apply {
                                     setPadding(0, px(6), 0, 0)
                                 })
@@ -841,12 +1013,25 @@ internal fun BridgeActivity.cleanup() {
                 body.addView(listContainer)
             }
 
+            if (scanResult.protectedItems.isNotEmpty()) {
+                val guardCard = outlinedCard()
+                guardCard.addView(text("Kept on by CleanYourTV safety guards (${scanResult.protectedItems.size})", 15, bold = true))
+                val lines = scanResult.protectedItems.joinToString("\n\n") { (item, reason) ->
+                    "${displayName(item.id)} (${item.id})\n$reason"
+                }
+                guardCard.addView(text(lines, 13, muted).apply { setPadding(0, px(6), 0, 0) })
+                body.addView(guardCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+                    topMargin = px(8)
+                    bottomMargin = px(8)
+                })
+            }
+
             if (scanResult.alreadyOffItems.isNotEmpty()) {
                 body.addView(text("Already off (${scanResult.alreadyOffItems.size})", 15, bold = true).apply {
-                    setPadding(0, px(12), 0, px(8))
+                    setPadding(0, px(10), 0, px(8))
                 })
                 for (item in scanResult.alreadyOffItems) {
-                    val subtitle = listOf(item.id, item.note).filter(String::isNotBlank).joinToString("\n")
+                    val subtitle = formatItemSubtitle(item, scanResult.match.totalLists)
                     body.addView(
                         appActionRow(item.id, subtitle, "Off", selected = false) {
                             confirm("Turn back on?", "${item.id}\n\nTurn this app back on for the current TV user.") {

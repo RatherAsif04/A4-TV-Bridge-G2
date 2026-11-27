@@ -254,21 +254,90 @@ internal class TvConnection private constructor(
     }
 
     fun cleanupProtection(): CleanupProtection {
-        val home = command("cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true")
-        val keyboard = command("settings get secure default_input_method 2>/dev/null || true")
-        val homePkg = home.text.lineSequence()
-            .map(String::trim)
-            .lastOrNull { '/' in it && !it.startsWith("priority=") }
-            ?.substringBefore('/')
-            ?.takeIf { it.isNotBlank() }
-        val keyboardPkg = keyboard.text.trim()
-            .takeIf { keyboard.status == 0 && '/' in it }
-            ?.substringBefore('/')
-            ?.takeIf { it.isNotBlank() }
-        return CleanupProtection(homePkg, keyboardPkg)
+        val raw = command("""
+            echo __home
+            cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true
+            echo __claims
+            cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true
+            echo __ime
+            settings get secure default_input_method 2>/dev/null || true
+            echo __wifi
+            dumpsys wifi 2>/dev/null | grep -o 'cname=[^ ]*' | head -n 40 || true
+            echo __channel
+            cmd package query-activities --brief -a android.intent.action.VIEW -t vnd.android.cursor.item/channel 2>/dev/null || true
+            echo __settings
+            cmd package query-activities --brief -a android.settings.SETTINGS 2>/dev/null || true
+            echo __tvinput
+            pm query-services --components -a android.media.tv.TvInputService 2>/dev/null || true
+            echo __adbsecure
+            getprop ro.adb.secure 2>/dev/null || true
+        """.trimIndent()).text
+
+        val sections = mutableMapOf<String, MutableList<String>>()
+        var current = ""
+        for (line in raw.lineSequence()) {
+            val t = line.trim()
+            if (t.startsWith("__")) current = t
+            else if (current.isNotEmpty() && t.isNotEmpty()) sections.getOrPut(current) { mutableListOf() }.add(t)
+        }
+
+        val componentRegex = Regex("""^([A-Za-z0-9_.]+)/[A-Za-z0-9_.$]+$""")
+        fun componentPackages(lines: List<String>): Set<String> = lines.mapNotNull { line ->
+            componentRegex.matchEntire(line)?.groupValues?.get(1)
+        }.toSet()
+
+        val homeComponent = sections["__home"].orEmpty().lastOrNull { componentRegex.matches(it) }
+        val homePkg = homeComponent?.substringBefore('/')?.takeIf { it != "android" }
+        val realLaunchers = sections["__claims"].orEmpty()
+            .filter { componentRegex.matches(it) && isRealLauncherComponent(it) }
+            .map { it.substringBefore('/') }
+            .toSet()
+
+        val imePkg = sections["__ime"].orEmpty().firstOrNull()?.takeIf { '/' in it }?.substringBefore('/')
+
+        val wifiOwners = sections["__wifi"].orEmpty()
+        val wifiChecked = wifiOwners.isNotEmpty()
+        val setupwraithOwnsWifi = wifiOwners.any { it.contains("setupwraith", ignoreCase = true) }
+
+        val channelPkgs = componentPackages(sections["__channel"].orEmpty())
+        val settingsPkgs = componentPackages(sections["__settings"].orEmpty())
+        val tvInputPkgs = componentPackages(sections["__tvinput"].orEmpty())
+        val adbSecureRaw = sections["__adbsecure"].orEmpty().firstOrNull() ?: ""
+
+        return CleanupProtection(
+            activeHomePackage = homePkg,
+            realHomeLaunchers = realLaunchers,
+            activeKeyboardPackage = imePkg,
+            setupwraithOwnsWifi = setupwraithOwnsWifi,
+            wifiOwnersChecked = wifiChecked,
+            inputHardwarePackages = tvInputPkgs,
+            channelHandlerPackages = channelPkgs,
+            settingsHandlerPackages = settingsPkgs,
+            adbSecureRaw = adbSecureRaw
+        )
     }
 
     fun protectForCleanup(name: String): Boolean = cleanupProtection().isProtected(name)
+
+    fun enabledPackages(): Set<String> = packages("-e")
+
+    fun readAnimationScales(): List<String> = listOf(
+        "window_animation_scale",
+        "transition_animation_scale",
+        "animator_duration_scale"
+    ).map { key ->
+        command("settings get global $key 2>/dev/null || true").text.trim().takeUnless { it == "null" || it.isBlank() } ?: "1.0"
+    }
+
+    fun writeAnimationScales(scales: List<String>) {
+        require(scales.size == 3)
+        val keys = listOf("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
+        val valid = Regex("""^-?\d+(\.\d+)?$""")
+        keys.zip(scales).forEach { (key, value) ->
+            require(valid.matches(value.trim())) { "Invalid animation scale." }
+            checked("settings put global $key ${shellText(value.trim())}")
+        }
+    }
 
     fun readTvDisabledLog(): Set<String> {
         val out = command("if [ -f /data/local/tmp/a4tvbridge/disabled.txt ]; then cat /data/local/tmp/a4tvbridge/disabled.txt; fi").text

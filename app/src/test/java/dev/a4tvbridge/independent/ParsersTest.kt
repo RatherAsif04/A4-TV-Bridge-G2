@@ -130,61 +130,106 @@ class ParsersTest {
         assertTrue(json.contains("RatherAsif04"))
     }
 
-    @Test fun autoMatchesProfilesAndUniversalBloatware() {
+    @Test fun autoMatchesProfilesAndCleanYourTvSafetyGuards() {
         val profiles = mapOf(
-            "xiaomi-mitv-mooq0" to listOf(
-                CleanupItem("com.miui.tv.analytics", "Xiaomi telemetry"),
-                CleanupItem("com.google.android.feedback", "Crash feedback"),
-                CleanupItem("com.mitv.tvhome.atv", "PatchWall")
-            ),
-            "tcl-c755-google-tv" to listOf(
-                CleanupItem("com.google.android.feedback", "Crash feedback"),
-                CleanupItem("com.tcl.esticker", "Store demo overlay")
-            ),
-            "sony-bravia-4k-vh2" to listOf(
-                CleanupItem("com.google.android.feedback", "Crash feedback"),
-                CleanupItem("com.sony.dtv.demosystem", "Retail demo")
+            "xiaomi-mitv-mooq0" to parseProfileList("""
+                # Xiaomi Mi TV header sentence
+                com.miui.tv.analytics # Xiaomi telemetry
+                com.google.android.feedback # Crash feedback
+                # com.mitv.tvhome.atv # Keep PatchWall if no replacement launcher
+            """.trimIndent()),
+            "tcl-c755-google-tv" to parseProfileList("""
+                com.google.android.feedback # Crash feedback
+                com.tcl.esticker # Store demo overlay
+            """.trimIndent()),
+            "sony-bravia-4k-vh2" to parseProfileList("""
+                com.google.android.feedback # Crash feedback
+                com.sony.dtv.demosystem # Retail demo
+            """.trimIndent())
+        )
+        val meta = mapOf(
+            "xiaomi-mitv-mooq0" to ProfileMeta(
+                tv = "Xiaomi Mi TV (MiTV-MOOQ0, croods; includes P1 43\" EU variant)",
+                os = "Android TV 10 and 11",
+                brand = "Xiaomi"
             )
         )
-        val installedXiaomi = setOf(
-            "com.miui.tv.analytics",
-            "com.google.android.feedback",
-            "com.android.settings"
-        )
+        val catalog = CleanupCatalog(profiles, meta)
+
+        // Verify parseProfileList separates active vs commented packages
+        assertEquals(listOf("com.miui.tv.analytics", "com.google.android.feedback"), profiles["xiaomi-mitv-mooq0"]!!.disabled.map { it.id })
+        assertEquals(listOf("com.mitv.tvhome.atv"), profiles["xiaomi-mitv-mooq0"]!!.kept.map { it.id })
+
+        // Verify tv.json codename matching ("croods") + community tally enrichment
         val exact = autoMatchCleanup(
-            TvIdentity(manufacturer = "Xiaomi", brand = "Xiaomi", model = "MiTV-MOOQ0"),
-            installedXiaomi,
-            profiles
+            TvIdentity(manufacturer = "Xiaomi", brand = "Xiaomi", model = "MiTV-MOOQ0", device = "croods"),
+            setOf("com.miui.tv.analytics", "com.google.android.feedback", "com.android.settings"),
+            catalog
         )
         assertEquals(ProfileMatchKind.EXACT_MODEL, exact.kind)
         assertEquals("xiaomi-mitv-mooq0", exact.profileName)
+        assertEquals("Android TV 10 and 11", exact.profileOs)
         assertEquals(2, exact.items.size)
+        assertEquals(3, exact.items.first { it.id == "com.google.android.feedback" }.disabledCount)
 
+        // Verify CleanYourTV match.py consensus fallback on unlisted TV
         val unknownTv = autoMatchCleanup(
             TvIdentity(manufacturer = "NewBrand", brand = "NewBrand", model = "SmartTV-9000"),
             setOf("com.google.android.feedback", "com.android.settings"),
-            profiles
+            catalog
         )
         assertEquals(ProfileMatchKind.AUTO_DETECTED, unknownTv.kind)
         assertEquals(listOf("com.google.android.feedback"), unknownTv.items.map { it.id })
 
+        // Verify manual profile override
         val manual = autoMatchCleanup(
             TvIdentity(manufacturer = "Xiaomi", brand = "Xiaomi", model = "MiTV-MOOQ0"),
             setOf("com.google.android.feedback", "com.tcl.esticker"),
-            profiles,
+            catalog,
             savedProfile = "tcl-c755-google-tv"
         )
         assertEquals(ProfileMatchKind.MANUAL, manual.kind)
         assertEquals("tcl-c755-google-tv", manual.profileName)
         assertEquals(2, manual.items.size)
 
+        // Verify CleanYourTV CORE_RE + CORE_OK boot-loop guard
+        assertTrue(isCoreProtectedPackage("android"))
+        assertTrue(isCoreProtectedPackage("com.android.location.fused"))
+        assertTrue(isCoreProtectedPackage("com.cltv.mal"))
+        assertTrue(isCoreProtectedPackage("com.mediatek.tis"))
+        assertTrue(isCoreProtectedPackage("com.android.providers.settings"))
+        assertFalse(isCoreProtectedPackage("com.android.providers.calendar"))
+        assertFalse(isCoreProtectedPackage("com.google.android.feedback"))
+
+        // Verify CleanYourTV launcher filter
+        assertFalse(isRealLauncherComponent("com.tcl.keycustomfunctionservice/.FallbackHome"))
+        assertFalse(isRealLauncherComponent("com.duokan.factorytest/.FactoryLauncher"))
+        assertFalse(isRealLauncherComponent("com.google.android.tungsten.setupwraith/.RecoveryActivity"))
+        assertTrue(isRealLauncherComponent("com.google.android.tvlauncher/.MainActivity"))
+
+        // Verify full CleanupProtection guards (Wi-Fi setupwraith, HDMI, Settings, Home, ro.adb.secure)
         val protection = CleanupProtection(
-            activeHomePackage = "com.example.launcher",
-            activeKeyboardPackage = "com.google.android.inputmethod.latin"
+            activeHomePackage = "com.google.android.tvlauncher",
+            realHomeLaunchers = setOf("com.google.android.tvlauncher"),
+            activeKeyboardPackage = "com.google.android.inputmethod.latin",
+            setupwraithOwnsWifi = true,
+            wifiOwnersChecked = true,
+            inputHardwarePackages = setOf("com.vendor.hdmiinput"),
+            settingsHandlerPackages = setOf("com.android.tv.settings"),
+            adbSecureRaw = "0"
         )
-        assertTrue(protection.isProtected("com.android.systemui"))
-        assertTrue(protection.isProtected("com.example.launcher"))
+        assertTrue(protection.adbInsecureWarning)
+        assertTrue(protection.isProtected(SETUPWRAITH_PACKAGE))
+        assertTrue(protection.isProtected("com.google.android.tvlauncher"))
+        assertTrue(protection.isProtected("com.vendor.hdmiinput"))
+        assertTrue(protection.isProtected("com.android.tv.settings"))
         assertTrue(protection.isProtected("com.google.android.inputmethod.latin"))
         assertFalse(protection.isProtected("com.google.android.feedback"))
+
+        // If a second real launcher is installed and staying enabled, disabling stock home is allowed
+        val withAltLauncher = protection.copy(
+            realHomeLaunchers = setOf("com.google.android.tvlauncher", "com.custom.launcher")
+        )
+        assertFalse(withAltLauncher.isProtected("com.google.android.tvlauncher", setOf("com.google.android.tvlauncher")))
     }
 }
