@@ -20,6 +20,20 @@ internal fun BridgeActivity.openAbout() {
         details.addView(aboutLink("@ratherasif04 on X") { openLink("https://x.com/ratherasif04") })
         details.addView(rule())
         details.addView(aboutLink("Project on GitHub") { openLink(releaseRoot) })
+        val pending = availableUpdate
+        val updateLabel = if (pending != null && isNewerVersion(pending.version, BuildConfig.VERSION_NAME)) {
+            "Install update (${pending.tagName})"
+        } else {
+            "Check for updates"
+        }
+        details.addView(aboutLink(updateLabel, external = false) {
+            popup.dismiss()
+            if (pending != null && isNewerVersion(pending.version, BuildConfig.VERSION_NAME)) {
+                showUpdateSheet(pending)
+            } else {
+                checkForUpdatesManually()
+            }
+        })
         details.addView(aboutLink("Releases and downloads") { openLink("$releaseRoot/releases") })
         details.addView(aboutLink("Report an issue") { openLink("$releaseRoot/issues") })
         body.addView(details)

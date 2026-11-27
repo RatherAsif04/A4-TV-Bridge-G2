@@ -163,6 +163,7 @@ jobs:
           - **Undoable TV Animation Speedup**: 1-tap \`0.5x\` / \`0x\` / \`1x\` animation scale tuning with automatic pre-cleanup backup in **Restore**.
           - **Automatic Check my TV & Post-Reboot Verification**: Automatically syncs local + TV-side disabled logs (\`/data/local/tmp/a4tvbridge/disabled.txt\`), detects drifted/re-enabled apps with 1-tap re-disable, flags reverted Home launchers with **Put my home screen back**, warns on open \`ro.adb.secure=0\` ports, checks Private DNS & storage health, and auto-reconnects after **Restart TV & verify** on port \`5555\`.
           - **Enhanced Restore**: Restores individual or all disabled apps in one tap and restores original TV animation scales.
+          - **Automatic In-App Updates**: Automatically checks GitHub Releases on startup and in **About → Check for updates**, verifies APK SHA-256 checksums and package ID, and installs updates in one tap.
 
           Debloat app lists and safety rules are based on [CleanYourTV](https://github.com/Gathin23/cleanyourtv) (MIT License, snapshot \`be60870\`).
 

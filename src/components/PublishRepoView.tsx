@@ -39,7 +39,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = 'c6202100fcbeb4e04166aaa48aee5fbae217e54ceb97b38f783616f676396f93';
+const ZIP_SHA256 = '43ef05149bbf672c43ca4780143b983455e122f98d353b0926d1e5c720e3cc92';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
@@ -84,7 +84,7 @@ const READINESS_CHECKS = [
   {
     item: 'Clean Android-Only Archive',
     detail: 'Self-contained Gradle project with executable gradlew and binary drawables intact',
-    value: '51 files · 743.1 KB',
+    value: '53 files · 749.8 KB',
     status: 'Verified'
   },
   {
@@ -461,7 +461,7 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                51 files · 743.1 KB
+                53 files · 749.8 KB
               </span>
             </div>
 

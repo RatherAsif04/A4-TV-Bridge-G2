@@ -232,4 +232,31 @@ class ParsersTest {
         )
         assertFalse(withAltLauncher.isProtected("com.google.android.tvlauncher", setOf("com.google.android.tvlauncher")))
     }
+
+    @Test fun checksAppUpdateVersionsChecksumsAndAssetSelection() {
+        assertTrue(isNewerVersion("v1.4.2", "1.4.1"))
+        assertTrue(isNewerVersion("1.10.0", "1.4.1"))
+        assertTrue(isNewerVersion("v2.0", "1.9.9"))
+        assertFalse(isNewerVersion("v1.4.1", "1.4.1"))
+        assertFalse(isNewerVersion("1.4.0", "1.4.1"))
+
+        val sums = """
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  A4-TV-Bridge-1.4.2-debug.apk
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  A4-TV-Bridge-1.4.2-release.apk
+        """.trimIndent()
+        assertEquals(
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            parseSha256Sums(sums, "A4-TV-Bridge-1.4.2-release.apk")
+        )
+        assertNull(parseSha256Sums(sums, "missing.apk"))
+
+        val base = "https://github.com/$APP_GITHUB_REPO/releases/download/v1.4.2"
+        val picked = pickReleaseApkAsset(listOf(
+            ReleaseAssetInfo("A4-TV-Bridge-1.4.2-release-unsigned.apk", "$base/A4-TV-Bridge-1.4.2-release-unsigned.apk", 5_000_000),
+            ReleaseAssetInfo("A4-TV-Bridge-1.4.2-debug.apk", "$base/A4-TV-Bridge-1.4.2-debug.apk", 6_000_000),
+            ReleaseAssetInfo("A4-TV-Bridge-1.4.2-release.apk", "$base/A4-TV-Bridge-1.4.2-release.apk", 5_200_000),
+            ReleaseAssetInfo("evil.apk", "https://evil.example.com/evil.apk", 1_000_000)
+        ))
+        assertEquals("A4-TV-Bridge-1.4.2-release.apk", picked?.name)
+    }
 }

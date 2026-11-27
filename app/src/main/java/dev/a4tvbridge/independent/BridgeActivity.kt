@@ -75,6 +75,8 @@ class BridgeActivity : Activity() {
     internal val dialogTheme get() = if (dark) R.style.BridgeDialogDark else R.style.BridgeDialogLight
     private var onDocuments: ((List<Uri>) -> Unit)? = null
     private var pendingSave: File? = null
+    internal var availableUpdate: AppUpdateInfo? = null
+    internal var pendingUpdateApk: File? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +97,7 @@ class BridgeActivity : Activity() {
                 }
             }
         }
+        checkAppUpdateOnStartup()
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -110,6 +113,12 @@ class BridgeActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        val stagedApk = pendingUpdateApk
+        if (stagedApk != null && stagedApk.isFile &&
+            (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls())
+        ) {
+            launchApkInstaller(stagedApk)
+        }
         if (page in setOf(Panel.DASHBOARD, Panel.MIRROR, Panel.INFO)) draw()
     }
 
