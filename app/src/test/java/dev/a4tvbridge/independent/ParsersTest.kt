@@ -129,4 +129,62 @@ class ParsersTest {
         assertTrue(json.contains("\"aurora\""))
         assertTrue(json.contains("RatherAsif04"))
     }
+
+    @Test fun autoMatchesProfilesAndUniversalBloatware() {
+        val profiles = mapOf(
+            "xiaomi-mitv-mooq0" to listOf(
+                CleanupItem("com.miui.tv.analytics", "Xiaomi telemetry"),
+                CleanupItem("com.google.android.feedback", "Crash feedback"),
+                CleanupItem("com.mitv.tvhome.atv", "PatchWall")
+            ),
+            "tcl-c755-google-tv" to listOf(
+                CleanupItem("com.google.android.feedback", "Crash feedback"),
+                CleanupItem("com.tcl.esticker", "Store demo overlay")
+            ),
+            "sony-bravia-4k-vh2" to listOf(
+                CleanupItem("com.google.android.feedback", "Crash feedback"),
+                CleanupItem("com.sony.dtv.demosystem", "Retail demo")
+            )
+        )
+        val installedXiaomi = setOf(
+            "com.miui.tv.analytics",
+            "com.google.android.feedback",
+            "com.android.settings"
+        )
+        val exact = autoMatchCleanup(
+            TvIdentity(manufacturer = "Xiaomi", brand = "Xiaomi", model = "MiTV-MOOQ0"),
+            installedXiaomi,
+            profiles
+        )
+        assertEquals(ProfileMatchKind.EXACT_MODEL, exact.kind)
+        assertEquals("xiaomi-mitv-mooq0", exact.profileName)
+        assertEquals(2, exact.items.size)
+
+        val unknownTv = autoMatchCleanup(
+            TvIdentity(manufacturer = "NewBrand", brand = "NewBrand", model = "SmartTV-9000"),
+            setOf("com.google.android.feedback", "com.android.settings"),
+            profiles
+        )
+        assertEquals(ProfileMatchKind.AUTO_DETECTED, unknownTv.kind)
+        assertEquals(listOf("com.google.android.feedback"), unknownTv.items.map { it.id })
+
+        val manual = autoMatchCleanup(
+            TvIdentity(manufacturer = "Xiaomi", brand = "Xiaomi", model = "MiTV-MOOQ0"),
+            setOf("com.google.android.feedback", "com.tcl.esticker"),
+            profiles,
+            savedProfile = "tcl-c755-google-tv"
+        )
+        assertEquals(ProfileMatchKind.MANUAL, manual.kind)
+        assertEquals("tcl-c755-google-tv", manual.profileName)
+        assertEquals(2, manual.items.size)
+
+        val protection = CleanupProtection(
+            activeHomePackage = "com.example.launcher",
+            activeKeyboardPackage = "com.google.android.inputmethod.latin"
+        )
+        assertTrue(protection.isProtected("com.android.systemui"))
+        assertTrue(protection.isProtected("com.example.launcher"))
+        assertTrue(protection.isProtected("com.google.android.inputmethod.latin"))
+        assertFalse(protection.isProtected("com.google.android.feedback"))
+    }
 }

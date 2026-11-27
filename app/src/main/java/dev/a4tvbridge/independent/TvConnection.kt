@@ -74,7 +74,13 @@ internal class TvConnection private constructor(
     val model: String,
     val androidVersion: String,
     val serial: String,
+    val manufacturer: String = "",
+    val brand: String = "",
+    val device: String = "",
+    val board: String = "",
 ) : AutoCloseable {
+    val identity: TvIdentity
+        get() = TvIdentity(manufacturer, brand, model, device, board, androidVersion)
     private val commandLock = Any()
 
     fun command(line: String): TerminalResult {
@@ -247,18 +253,46 @@ internal class TvConnection private constructor(
         checked("am start --user 0 -n ${shellText(target)}")
     }
 
-    fun protectForCleanup(name: String): Boolean {
-        val id = packageId(name)
-        if (id in setOf("android", "com.android.systemui", "com.android.settings", "com.android.vending", "com.google.android.gms")) {
-            return true
-        }
+    fun cleanupProtection(): CleanupProtection {
         val home = command("cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true")
-        val keyboard = command("settings get secure default_input_method")
-        val isHome = '/' in home.text && home.text.lineSequence().any { it.startsWith("$id/") }
-        val isKeyboard = keyboard.status == 0 && keyboard.text.startsWith("$id/")
-        return isHome || isKeyboard ||
-            id.contains("tvinput", true) || id.contains("bluetooth", true) || id.contains("remote", true) ||
-            id.contains("setupwraith", true) || id.contains("setupwizard", true)
+        val keyboard = command("settings get secure default_input_method 2>/dev/null || true")
+        val homePkg = home.text.lineSequence()
+            .map(String::trim)
+            .lastOrNull { '/' in it && !it.startsWith("priority=") }
+            ?.substringBefore('/')
+            ?.takeIf { it.isNotBlank() }
+        val keyboardPkg = keyboard.text.trim()
+            .takeIf { keyboard.status == 0 && '/' in it }
+            ?.substringBefore('/')
+            ?.takeIf { it.isNotBlank() }
+        return CleanupProtection(homePkg, keyboardPkg)
+    }
+
+    fun protectForCleanup(name: String): Boolean = cleanupProtection().isProtected(name)
+
+    fun readTvDisabledLog(): Set<String> {
+        val out = command("if [ -f /data/local/tmp/a4tvbridge/disabled.txt ]; then cat /data/local/tmp/a4tvbridge/disabled.txt; fi").text
+        return out.lineSequence()
+            .map(String::trim)
+            .mapNotNull { runCatching { packageId(it) }.getOrNull() }
+            .toSet()
+    }
+
+    fun recordTvDisabled(name: String, disabled: Boolean) {
+        val id = shellText(packageId(name))
+        val file = "/data/local/tmp/a4tvbridge/disabled.txt"
+        runCatching {
+            if (disabled) {
+                command(
+                    "mkdir -p /data/local/tmp/a4tvbridge && " +
+                        "(grep -qxF $id $file 2>/dev/null || printf '%s\n' $id >> $file)"
+                )
+            } else {
+                command(
+                    "if [ -f $file ]; then grep -vxF $id $file > $file.tmp || true; mv -f $file.tmp $file; fi"
+                )
+            }
+        }
     }
 
     fun togglePackage(name: String, enabled: Boolean) {
@@ -420,14 +454,24 @@ internal class TvConnection private constructor(
             val adb = Kadb.create(address.host, address.port, connectTimeout = 6500, socketTimeout = 95_000)
             try {
                 val marker = "a4-link-${UUID.randomUUID()}"
-                val reply = adb.shell("echo $marker; getprop ro.product.model; getprop ro.build.version.release; getprop ro.serialno")
+                val reply = adb.shell(
+                    "echo $marker; getprop ro.product.model; getprop ro.build.version.release; getprop ro.serialno; " +
+                        "getprop ro.product.manufacturer; getprop ro.product.brand; getprop ro.product.device; getprop ro.product.board"
+                )
                 val rows = reply.allOutput.lineSequence().map(String::trim).toList()
                 val markerIndex = rows.indexOf(marker)
                 check(markerIndex >= 0) { "The TV opened a connection but did not return an ADB shell response." }
                 val model = rows.getOrNull(markerIndex + 1).orEmpty().ifBlank { "Android TV" }
                 val version = rows.getOrNull(markerIndex + 2).orEmpty()
                 val hardware = rows.getOrNull(markerIndex + 3).orEmpty()
-                return TvConnection(adb, address, model, version, hardware.ifBlank { address.host })
+                val manufacturer = rows.getOrNull(markerIndex + 4).orEmpty()
+                val brand = rows.getOrNull(markerIndex + 5).orEmpty()
+                val device = rows.getOrNull(markerIndex + 6).orEmpty()
+                val board = rows.getOrNull(markerIndex + 7).orEmpty()
+                return TvConnection(
+                    adb, address, model, version, hardware.ifBlank { address.host },
+                    manufacturer, brand, device, board
+                )
             } catch (error: Exception) {
                 adb.close()
                 throw error

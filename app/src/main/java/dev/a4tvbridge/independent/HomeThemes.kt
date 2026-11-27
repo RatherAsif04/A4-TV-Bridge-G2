@@ -241,6 +241,9 @@ internal fun BridgeActivity.homeScreenPage() {
                 } else {
                     confirm("Set ${displayName(pkg)} as default Home?", "Sets $component as the TV’s Home screen.") {
                         tvTask({ setHomeActivity(component) }) { applied ->
+                            connection?.let { tv ->
+                                preferences.edit().putString("preferred-home-${tv.serial}", component).apply()
+                            }
                             if (applied) {
                                 report("Default Home switched to ${displayName(pkg)}.")
                                 refresh()

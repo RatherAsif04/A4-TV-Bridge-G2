@@ -376,6 +376,19 @@ class BridgeActivity : Activity() {
         show(Panel.DASHBOARD, rememberPage = false)
     }
 
+    internal fun replaceConnection(connected: TvConnection?) {
+        polling?.cancel()
+        polling = null
+        val previous = connection
+        connection = connected
+        if (previous != null && previous !== connected) {
+            scope.launch(Dispatchers.IO) { runCatching { previous.close() } }
+        }
+        if (connected != null) {
+            TvDirectory(this).remember(connected)
+        }
+    }
+
     internal fun controls() {
         showSheet("Control and capture") { popup, area ->
             fun open(action: () -> Unit) {
