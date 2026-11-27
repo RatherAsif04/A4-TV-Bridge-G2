@@ -1,19 +1,37 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AlertCircle,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   Download,
   ExternalLink,
   FolderArchive,
   GitBranch,
+  GitCommitHorizontal,
   KeyRound,
+  RefreshCw,
   ShieldCheck,
   Terminal,
   Upload
 } from 'lucide-react';
 
 type CommandMode = 'gh' | 'git';
+
+type SyncState = 'idle' | 'checking' | 'synced' | 'ahead' | 'error';
+
+interface RepoSyncStatus {
+  state: 'synced' | 'ahead';
+  branch: string;
+  remoteCommit: string;
+  remoteCommitMessage: string;
+  aheadFiles: number;
+  latestRelease: string;
+  ciWorkflowStatus: string;
+  checkedAt: string;
+  latencyMs: number;
+}
 
 const REPO_OWNER = 'RatherAsif04';
 const REPO_NAME = 'A4-TV-Bridge-G2';
@@ -77,6 +95,31 @@ const READINESS_CHECKS = [
   }
 ];
 
+function fetchSimulatedRepoSyncStatus(checkCount: number): Promise<RepoSyncStatus> {
+  const latencyMs = 420 + ((checkCount * 137) % 340);
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      const now = new Date();
+      const formattedTime = now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      resolve({
+        state: 'ahead',
+        branch: 'main',
+        remoteCommit: 'b370376',
+        remoteCommitMessage: 'Switch to kadb 2.1.4 and publish signed v1.0.1 APK',
+        aheadFiles: 7,
+        latestRelease: 'v1.0.1 (Signed)',
+        ciWorkflowStatus: 'Run #15 Passed',
+        checkedAt: formattedTime,
+        latencyMs
+      });
+    }, latencyMs);
+  });
+}
+
 export const PublishRepoView: React.FC = () => {
   const [commandMode, setCommandMode] = useState<CommandMode>('gh');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -85,8 +128,37 @@ export const PublishRepoView: React.FC = () => {
   const [keystoreBytes, setKeystoreBytes] = useState<number>(0);
   const [keystoreBase64, setKeystoreBase64] = useState<string>('');
   const [keystoreError, setKeystoreError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [syncData, setSyncData] = useState<RepoSyncStatus | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const checkCounterRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const activeScript = commandMode === 'gh' ? GH_CLI_SCRIPT : STANDARD_GIT_SCRIPT;
+
+  const runSyncCheck = useCallback(async () => {
+    const requestId = ++checkCounterRef.current;
+    setSyncState('checking');
+    setSyncError(null);
+    try {
+      const result = await fetchSimulatedRepoSyncStatus(requestId);
+      if (!mountedRef.current || requestId !== checkCounterRef.current) return;
+      setSyncData(result);
+      setSyncState(result.state);
+    } catch {
+      if (!mountedRef.current || requestId !== checkCounterRef.current) return;
+      setSyncError('Could not complete the simulated repository sync check.');
+      setSyncState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    runSyncCheck();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [runSyncCheck]);
 
   const handleKeystoreSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -196,6 +268,122 @@ export const PublishRepoView: React.FC = () => {
             </>
           )}
         </button>
+      </section>
+
+      {/* Repository Sync Status (Simulated API Check) */}
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <GitCommitHorizontal className="w-4 h-4 text-[#00587B] dark:text-[#B0DEFF] shrink-0" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                Repository Sync Status
+              </h2>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                {REPO_SLUG}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Simulated API check comparing local workspace changes against remote branch <code className="font-mono text-slate-700 dark:text-slate-300">main</code>.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <a
+              href={`${REPO_URL}/actions`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-[#00587B] dark:text-[#B0DEFF] hover:underline flex items-center gap-1 whitespace-nowrap"
+            >
+              View Actions
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <button
+              type="button"
+              onClick={runSyncCheck}
+              disabled={syncState === 'checking'}
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:cursor-wait"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncState === 'checking' ? 'animate-spin' : ''}`} />
+              {syncState === 'checking' ? 'Checking…' : 'Check Sync'}
+            </button>
+          </div>
+        </div>
+
+        {syncState === 'checking' && !syncData ? (
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+            <RefreshCw className="w-4 h-4 animate-spin text-[#00587B] dark:text-[#B0DEFF] shrink-0" />
+            <span>Querying simulated sync endpoint for <span className="font-mono text-slate-800 dark:text-slate-200">{REPO_SLUG}</span>…</span>
+          </div>
+        ) : syncState === 'error' ? (
+          <div className="p-4 rounded-xl bg-red-50/70 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 flex items-center justify-between gap-3 text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{syncError || 'Sync check failed.'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={runSyncCheck}
+              className="font-semibold underline cursor-pointer shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        ) : syncData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Sync State
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <Clock className="w-4 h-4 shrink-0" />
+                  <span>{syncData.aheadFiles} local files ahead</span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  Ready to push to <span className="font-mono">{syncData.branch}</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Remote HEAD
+                </div>
+                <div className="mt-1 text-sm font-mono font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                  {syncData.branch} @ {syncData.remoteCommit}
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 truncate" title={syncData.remoteCommitMessage}>
+                  {syncData.remoteCommitMessage}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Latest CI &amp; Release
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{syncData.ciWorkflowStatus}</span>
+                </div>
+                <div className="mt-0.5 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                  Release {syncData.latestRelease}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Last Simulated Check
+                </div>
+                <div className="mt-1 text-sm font-mono font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                  {syncData.checkedAt}
+                </div>
+                <div className="mt-0.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                  {syncState === 'checking' ? 'Refreshing…' : `Simulated response · ${syncData.latencyMs} ms`}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* Two Balanced Upload Paths */}
