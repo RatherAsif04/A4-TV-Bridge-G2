@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, Download, FileCode2, Search } from 'lucide-react';
+import { Check, Copy, Download, FileCode2, FileText, Search } from 'lucide-react';
 import {
   AUDIT_ISSUES,
   FIXED_PATCHES,
@@ -7,6 +7,7 @@ import {
   type BugCategory,
   type ScreenId
 } from '../data/auditReport';
+import { exportAuditSummaryPdf } from '../utils/exportAuditPdf';
 
 interface CodeFixesViewProps {
   onDownloadPatch: () => void;
@@ -21,6 +22,7 @@ export const CodeFixesView: React.FC<CodeFixesViewProps> = ({
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(AUDIT_ISSUES[0].id);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'exporting' | 'done'>('idle');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,6 +49,19 @@ export const CodeFixesView: React.FC<CodeFixesViewProps> = ({
     navigator.clipboard?.writeText(text);
     setCopiedPath(key);
     window.setTimeout(() => setCopiedPath(null), 1800);
+  };
+
+  const handleExportPdf = () => {
+    setPdfStatus('exporting');
+    window.setTimeout(() => {
+      try {
+        exportAuditSummaryPdf(AUDIT_ISSUES, FIXED_PATCHES);
+        setPdfStatus('done');
+        window.setTimeout(() => setPdfStatus('idle'), 2200);
+      } catch {
+        setPdfStatus('idle');
+      }
+    }, 30);
   };
 
   return (
@@ -92,6 +107,25 @@ export const CodeFixesView: React.FC<CodeFixesViewProps> = ({
           </div>
 
           <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={pdfStatus === 'exporting'}
+            className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+          >
+            {pdfStatus === 'done' ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileText className="w-3.5 h-3.5 text-[#00587B] dark:text-[#B0DEFF]" />
+            )}
+            {pdfStatus === 'exporting'
+              ? 'Generating PDF…'
+              : pdfStatus === 'done'
+                ? 'PDF Downloaded'
+                : 'Download PDF Summary'}
+          </button>
+
+          <button
+            type="button"
             onClick={onDownloadPatch}
             className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#00587B] text-white hover:bg-[#004663] transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
