@@ -10,8 +10,8 @@ android {
         applicationId = "dev.a4tvbridge.app"
         minSdk = 26
         targetSdk = 36
-        versionName = "1.4.0"
-        versionCode = 11
+        versionName = "1.4.1"
+        versionCode = 12
     }
 
     compileOptions {

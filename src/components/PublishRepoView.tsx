@@ -39,20 +39,20 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = 'f55adf037c41c1e2316f64dc2bc905f7ce5ebe43e525d1ccf6a66d2af9c2434f';
+const ZIP_SHA256 = 'c6202100fcbeb4e04166aaa48aee5fbae217e54ceb97b38f783616f676396f93';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
 git init -b main
 git add .
-git commit -m "Release A4 TV Bridge v1.4.0 clean-room feature build"
+git commit -m "Release A4 TV Bridge v1.4.1 (CleanYourTV auto-cleanup & Check my TV)"
 gh repo create ${REPO_SLUG} --public --source=. --remote=origin --push`;
 
 const STANDARD_GIT_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
 git init -b main
 git add .
-git commit -m "Release A4 TV Bridge v1.4.0 clean-room feature build"
+git commit -m "Release A4 TV Bridge v1.4.1 (CleanYourTV auto-cleanup & Check my TV)"
 git remote add origin ${REPO_URL}.git
 git push -u origin main`;
 
@@ -77,14 +77,14 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Automated APK & GitHub Release CI',
-    detail: 'Runs unit tests, builds Debug + Release APKs, and publishes v1.4.0 Release on push',
-    value: 'v1.4.0 (code 11)',
+    detail: 'Runs unit tests, builds Debug + Release APKs, and publishes v1.4.1 Release on push',
+    value: 'v1.4.1 (code 12)',
     status: 'Verified'
   },
   {
     item: 'Clean Android-Only Archive',
     detail: 'Self-contained Gradle project with executable gradlew and binary drawables intact',
-    value: '51 files · 743.0 KB',
+    value: '51 files · 743.1 KB',
     status: 'Verified'
   },
   {
@@ -219,7 +219,7 @@ export const PublishRepoView: React.FC = () => {
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
             <span>Public Repository</span>
             <span aria-hidden="true">·</span>
-            <span>Version 1.4.0</span>
+            <span>Version 1.4.1</span>
             <span aria-hidden="true">·</span>
             <span>Android Platform 37.0</span>
             <span aria-hidden="true">·</span>
@@ -430,7 +430,7 @@ export const PublishRepoView: React.FC = () => {
                   03
                 </span>
                 <span>
-                  Push to <code className="font-mono text-xs text-slate-900 dark:text-slate-100">main</code>. GitHub Actions will run unit tests, compile Debug &amp; Release APKs, and publish Release <code className="font-mono text-xs">v1.4.0</code> automatically.
+                  Push to <code className="font-mono text-xs text-slate-900 dark:text-slate-100">main</code>. GitHub Actions will run unit tests, compile Debug &amp; Release APKs, and publish Release <code className="font-mono text-xs">v1.4.1</code> automatically.
                 </span>
               </li>
             </ol>
@@ -461,7 +461,7 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                51 files · 743.0 KB
+                51 files · 743.1 KB
               </span>
             </div>
 
@@ -558,7 +558,7 @@ export const PublishRepoView: React.FC = () => {
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
           Convert your <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.p12</code> or{' '}
           <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.jks</code> keystore to Base64 locally in your browser (never uploaded anywhere), then add the 4 secrets in GitHub Settings so every push automatically signs{' '}
-          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">A4-TV-Bridge-1.4.0-release.apk</code>.
+          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">A4-TV-Bridge-1.4.1-release.apk</code>.
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
