@@ -39,7 +39,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-android.zip';
-const ZIP_SHA256 = '53df4454b25028c1a74f223615d59dbf727adb62c28663d921d4eca95bcc7687';
+const ZIP_SHA256 = '7a4957e5908eee459a841e3e924fb4972ff709e3712565e08de84290cfb40fba';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
@@ -65,7 +65,7 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Android SDK & Build Toolchain',
-    detail: 'Android Platform 37.0 (android-37.0), Build Tools 37.0.0, kadb 2.1.4, JDK 21, Gradle 9.3.1',
+    detail: 'Android Platform 37.0 (android-37.0), Build Tools 37.0.0, kadb 2.1.4, JDK 21, Gradle 9.9.2',
     value: 'compileSdk 37',
     status: 'Verified'
   },

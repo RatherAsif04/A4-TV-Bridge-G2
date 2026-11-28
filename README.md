@@ -154,7 +154,7 @@
 
 ### Build Locally
 
-Requirements: **JDK 21**, **Android SDK Platform 37.0** (`compileSdk = 37`), **Build Tools 37.0.0**, and **Gradle 9.3.1** (included via `./gradlew`).
+Requirements: **JDK 21**, **Android SDK Platform 37.0** (`compileSdk = 37`), **Build Tools 37.0.0**, and **Gradle 9.9.2** (included via `./gradlew`).
 
 ```sh
 export ANDROID_HOME=/path/to/android-sdk
