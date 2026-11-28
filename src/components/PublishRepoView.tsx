@@ -39,20 +39,20 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-android.zip';
-const ZIP_SHA256 = '7a4957e5908eee459a841e3e924fb4972ff709e3712565e08de84290cfb40fba';
+const ZIP_SHA256 = '6f0f037e0770d10a283040bf7e6093ec1119877430aaf0b9155b57c5c259172d';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
 git init -b main
 git add .
-git commit -m "Release A4 TV Bridge v1.4.2 (Redesigned UI, Visual Theme Studio & Docs)"
+git commit -m "Release A4 TV Bridge v1.4.3 (Startup Fix, Gradle 9.9.2 & Clean Release)"
 gh repo create ${REPO_SLUG} --public --source=. --remote=origin --push`;
 
 const STANDARD_GIT_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
 git init -b main
 git add .
-git commit -m "Release A4 TV Bridge v1.4.2 (Redesigned UI, Visual Theme Studio & Docs)"
+git commit -m "Release A4 TV Bridge v1.4.3 (Startup Fix, Gradle 9.9.2 & Clean Release)"
 git remote add origin ${REPO_URL}.git
 git push -u origin main`;
 
@@ -77,8 +77,8 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Automated APK & GitHub Release CI',
-    detail: 'Runs unit tests, builds Debug + Release APKs, and publishes v1.4.2 Release on push',
-    value: 'v1.4.2 (code 13)',
+    detail: 'Runs unit tests, archives Debug + Release in CI, and publishes only signed v1.4.3 release APK publicly',
+    value: 'v1.4.3 (code 14)',
     status: 'Verified'
   },
   {
@@ -219,7 +219,7 @@ export const PublishRepoView: React.FC = () => {
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
             <span>Public Repository</span>
             <span aria-hidden="true">·</span>
-            <span>Version 1.4.2</span>
+            <span>Version 1.4.3</span>
             <span aria-hidden="true">·</span>
             <span>Android Platform 37.0</span>
             <span aria-hidden="true">·</span>
@@ -430,7 +430,7 @@ export const PublishRepoView: React.FC = () => {
                   03
                 </span>
                 <span>
-                  Push to <code className="font-mono text-xs text-slate-900 dark:text-slate-100">main</code>. GitHub Actions will run unit tests, compile Debug &amp; Release APKs, and publish Release <code className="font-mono text-xs">v1.4.2</code> automatically.
+                  Push to <code className="font-mono text-xs text-slate-900 dark:text-slate-100">main</code>. GitHub Actions will run unit tests, archive Debug &amp; Release APKs in CI, and publish signed Release <code className="font-mono text-xs">v1.4.3</code> automatically.
                 </span>
               </li>
             </ol>
@@ -558,7 +558,7 @@ export const PublishRepoView: React.FC = () => {
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
           Convert your <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.p12</code> or{' '}
           <code className="font-mono text-xs text-slate-800 dark:text-slate-200">.jks</code> keystore to Base64 locally in your browser (never uploaded anywhere), then add the 4 secrets in GitHub Settings so every push automatically signs{' '}
-          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">A4-TV-Bridge-1.4.2-release.apk</code>.
+          <code className="font-mono text-xs text-slate-800 dark:text-slate-200">A4-TV-Bridge-1.4.3-release.apk</code>.
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

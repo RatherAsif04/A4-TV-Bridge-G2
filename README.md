@@ -9,7 +9,7 @@
 
   <p>
     <a href="https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest">
-      <img src="https://img.shields.io/badge/release-v1.4.2%20(Build%2013)-00587B?style=flat-square" alt="Release v1.4.2 Build 13" />
+      <img src="https://img.shields.io/badge/release-v1.4.3%20(Build%2014)-00587B?style=flat-square" alt="Release v1.4.3 Build 14" />
     </a>
     <img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-10B981?style=flat-square" alt="Android 8.0+" />
     <a href="LICENSE">
@@ -134,7 +134,7 @@
 
 > See the complete step-by-step manual with troubleshooting in **[docs/USAGE.md](docs/USAGE.md)**.
 
-1. **Install the App**: Download `A4-TV-Bridge-1.4.2-release.apk` from the [Latest Release](https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest) on your Android phone or tablet (Android 8.0+) and install it.
+1. **Install the App**: Download `A4-TV-Bridge-1.4.3-release.apk` from the [Latest Release](https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest) on your Android phone or tablet (Android 8.0+) and install it.
 2. **Enable Debugging on Your TV**:
    - Open **Settings → System → About** on your TV and click **Android TV OS build** 7 times to unlock Developer Options.
    - Open **Settings → System → Developer options** and turn on **Wireless debugging**, **Network debugging**, or **USB/ADB debugging**.
@@ -165,8 +165,8 @@ export ANDROID_HOME=/path/to/android-sdk
 
 Every push to `main` runs `.github/workflows/build-apk.yml`:
 1. Runs Kotlin unit tests (`:app:testDebugUnitTest`).
-2. Builds `A4-TV-Bridge-<version>-debug.apk` and `A4-TV-Bridge-<version>-release.apk` (automatically `zipalign`ed and signed/verified with `apksigner` when repository secrets `SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, and `SIGNING_KEY_PASSWORD` are set).
-3. Generates `SHA256SUMS.txt` and automatically publishes the GitHub Release tagged `v<versionName>`, which the in-app updater detects automatically.
+2. Builds both `A4-TV-Bridge-<version>-debug.apk` (archived in GitHub Actions CI artifacts) and `A4-TV-Bridge-<version>-release.apk` (automatically `zipalign`ed and signed/verified with `apksigner` when repository secrets `SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, and `SIGNING_KEY_PASSWORD` are set).
+3. Generates `SHA256SUMS.txt` and publishes only the signed release APK and checksums to the public GitHub Release tagged `v<versionName>`, which the in-app updater detects automatically.
 
 ---
 

@@ -4,6 +4,16 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
+## [v1.4.3] — Build 14
+
+### Fixed & Improved
+- **Android Launch Crash Fix (`BridgeActivity.kt`)**: Moved `setContentView` before `WindowCompat.getInsetsController` and `WindowCompat.setDecorFitsSystemWindows` to fix a startup `NullPointerException` on `DecorView.getWindowInsetsController()`.
+- **Branding & Repository Alignment**: Renamed user-facing branding to **A4 TV Bridge** and updated the in-app GitHub Releases updater and links to `RatherAsif04/A4-TV-Bridge`.
+- **Gradle 9.9.2 Upgrade**: Updated the Gradle wrapper (with official SHA-256 verification) and GitHub Actions workflow to **Gradle 9.9.2**.
+- **Cleaner Public GitHub Releases**: Updated `.github/workflows/build-apk.yml` so public GitHub Releases publish only the signed `A4-TV-Bridge-1.4.3-release.apk` and `SHA256SUMS.txt`, while keeping `debug.apk` available in GitHub Actions workflow artifacts.
+
+---
+
 ## [v1.4.2] — Build 13
 
 ### Changed & Redesigned

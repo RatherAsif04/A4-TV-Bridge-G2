@@ -89,8 +89,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p release-apks
-          cp app/build/outputs/apk/debug/app-debug.apk release-apks/A4-TV-Bridge-1.4.2-debug.apk
+          mkdir -p ci-apks public-release
+          cp app/build/outputs/apk/debug/app-debug.apk ci-apks/A4-TV-Bridge-1.4.3-debug.apk
 
           SIGNED_RELEASE=false
           if [ -n "${SIGNING_KEY_BASE64:-}" ] && [ -n "${SIGNING_STORE_PASSWORD:-}" ] && [ -n "${SIGNING_KEY_ALIAS:-}" ]; then
@@ -120,50 +120,53 @@ jobs:
               --ks-key-alias "$SIGNING_KEY_ALIAS" \
               --ks-pass env:KS_PASS \
               --key-pass env:KEY_PASS \
-              --out release-apks/A4-TV-Bridge-1.4.2-release.apk \
+              --out ci-apks/A4-TV-Bridge-1.4.3-release.apk \
               app/build/outputs/apk/release/app-release-unsigned.apk
 
-            rm -f release-apks/*.idsig
-            "$APKSIGNER" verify --print-certs release-apks/A4-TV-Bridge-1.4.2-release.apk
+            rm -f ci-apks/*.idsig
+            "$APKSIGNER" verify --print-certs ci-apks/A4-TV-Bridge-1.4.3-release.apk
+            cp ci-apks/A4-TV-Bridge-1.4.3-release.apk public-release/A4-TV-Bridge-1.4.3-release.apk
             SIGNED_RELEASE=true
           else
-            echo "Signing secrets not configured; keeping unsigned release APK."
-            cp app/build/outputs/apk/release/app-release-unsigned.apk release-apks/A4-TV-Bridge-1.4.2-release-unsigned.apk
+            echo "Signing secrets not configured; falling back to debug + unsigned release APKs."
+            cp app/build/outputs/apk/release/app-release-unsigned.apk ci-apks/A4-TV-Bridge-1.4.3-release-unsigned.apk
+            cp ci-apks/A4-TV-Bridge-1.4.3-debug.apk public-release/A4-TV-Bridge-1.4.3-debug.apk
+            cp ci-apks/A4-TV-Bridge-1.4.3-release-unsigned.apk public-release/A4-TV-Bridge-1.4.3-release-unsigned.apk
           fi
 
           echo "SIGNED_RELEASE=$SIGNED_RELEASE" >> "$GITHUB_ENV"
-          (cd release-apks && sha256sum *.apk > SHA256SUMS.txt)
-          cat release-apks/SHA256SUMS.txt
+          (cd ci-apks && sha256sum *.apk > SHA256SUMS.txt)
+          (cd public-release && sha256sum *.apk > SHA256SUMS.txt)
+          echo "=== Public Release Checksums ==="
+          cat public-release/SHA256SUMS.txt
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: A4-TV-Bridge-1.4.2-APKs
-          path: release-apks/*
+          name: A4-TV-Bridge-1.4.3-APKs
+          path: ci-apks/*
 
       - name: Publish GitHub Release (on main push)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.4.2"
-          TITLE="A4 TV Bridge 1.4.2 (Redesigned UI, Visual Theme Studio & Docs)"
+          TAG="v1.4.3"
+          TITLE="A4 TV Bridge 1.4.3 (Startup Fix, Gradle 9.9.2 & Clean Release)"
           if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
-            INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.4.2-release.apk` directly on Android phones or tablets (signed with the official release keystore). Existing v1.4.1 users can also update in one tap via **About → Check for updates**.'
+            INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.4.3-release.apk` directly on Android phones or tablets (signed with the official release keystore). Existing users can also update in one tap via **About → Check for updates**. Debug APKs remain available under the GitHub Actions workflow artifacts.'
           else
-            INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.4.2-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
+            INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.4.3-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
           fi
           NOTES=$(cat <<EOF
-          ## A4 TV Bridge 1.4.2 (Build 13) — Redesigned UI, Visual Theme Studio & Docs
+          ## A4 TV Bridge 1.4.3 (Build 14) — Startup Fix, Gradle 9.9.2 & Clean Release
           Authored and licensed under **RatherAsif04 (MIT License)**. Built automatically from source via GitHub Actions.
 
-          ### What's New in 1.4.2
-          - **Unified High-Contrast Dark & Light Design System**: True-black obsidian dark surface (\`#05070A\`), elevated slate cards (\`#0D1219\`), crisp cyan/emerald/amber semantic accents, clean light mode (\`#F1F5F9\` / \`#FFFFFF\`), and a floating 5-tab bottom dock (\`Home\`, \`Apps\`, raised circular cyan \`Control\`, \`TV Care\`, \`Shell\`).
-          - **Redesigned Dashboard**: Connected TV hero card with \`Switch TV\` pill and storage progress bar, 3 colored-dot live telemetry tiles (CPU, Memory, Network), 2×2 Quick Actions cards with tinted icon badges, and a grouped \`More Tools\` section.
-          - **Redesigned Remote Control**: Full-width \`D-Pad\` / \`Touchpad\` switch, 4-button \`Mirror / Screenshot / Record / Power\` bar, sculpted circular D-Pad with central cyan \`OK\` button, split \`Volume\` and \`Media\` cards, and an inline \`Send Text to TV Keyboard\` bar.
-          - **Redesigned Clean Up TV & Check my TV**: Auto-matched CleanYourTV profile banner (518 device lists), 3-step \`1.0x / 0.5x / 0x\` Animation Speedup selector, emerald \`Safety Guards Active\` card, custom checkbox rows with community disable percentages, emerald Verdict Hero card, 2×2 Status Overview grid, \`System Health Checks\` with \`PASS / WARN / SAFE\` pills, and \`Post-Reboot Persistence Test\` card.
-          - **Redesigned Device Info (Network) & Home Theme Studio**: Always-accessible \`Share Info\` pill, area-shaded live Download/Upload throughput chart, structured \`Wi-Fi Link Details\` card, proportional colored per-app traffic bars, \`Active / Set\` launcher pills, and a 2×2 visual preview grid for \`Nordic Slate\`, \`Obsidian Gold\`, \`Deep Ocean\`, and \`Emerald Dusk\` 1080p wallpapers.
-          - **Complete GitHub Documentation & Screenshots**: Added 6 high-DPI UI screenshots, full feature guide (\`docs/FEATURES.md\`), updated \`README.md\`, \`docs/USAGE.md\`, \`CHANGELOG.md\`, and \`SECURITY.md\`.
+          ### What's New in 1.4.3
+          - **Android Startup Crash Fix**: Fixed a \`NullPointerException\` on launch (\`DecorView.getWindowInsetsController()\`) by initializing the content view before configuring \`WindowCompat\` insets and edge-to-edge system bars.
+          - **Repository & In-App Updater Alignment**: Updated the app branding to **A4 TV Bridge** and pointed the in-app GitHub Releases updater and About/Issues links to \`RatherAsif04/A4-TV-Bridge\`.
+          - **Gradle 9.9.2 Toolchain**: Upgraded the Gradle wrapper (with official SHA-256 verification) and GitHub Actions workflow to **Gradle 9.9.2**, clearing out-of-date Gradle CI notices.
+          - **Cleaner Public Releases**: Public GitHub Releases now include only the signed \`release.apk\` and matching \`SHA256SUMS.txt\`, while \`debug.apk\` continues to be built and archived in GitHub Actions CI artifacts.
 
           Debloat app lists and safety rules are based on [CleanYourTV](https://github.com/Gathin23/cleanyourtv) (MIT License, snapshot \`be60870\`).
 
@@ -171,14 +174,15 @@ jobs:
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" release-apks/* --clobber
-            gh release delete-asset "$TAG" A4-TV-Bridge-1.4.2-release.apk.idsig -y >/dev/null 2>&1 || true
+            gh release upload "$TAG" public-release/* --clobber
+            gh release delete-asset "$TAG" A4-TV-Bridge-1.4.3-release.apk.idsig -y >/dev/null 2>&1 || true
             if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
-              gh release delete-asset "$TAG" A4-TV-Bridge-1.4.2-release-unsigned.apk -y >/dev/null 2>&1 || true
+              gh release delete-asset "$TAG" A4-TV-Bridge-1.4.3-debug.apk -y >/dev/null 2>&1 || true
+              gh release delete-asset "$TAG" A4-TV-Bridge-1.4.3-release-unsigned.apk -y >/dev/null 2>&1 || true
             fi
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
           else
-            gh release create "$TAG" release-apks/* --title "$TITLE" --notes "$NOTES"
+            gh release create "$TAG" public-release/* --title "$TITLE" --notes "$NOTES"
           fi
 
 
