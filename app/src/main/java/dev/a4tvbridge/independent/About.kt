@@ -58,6 +58,10 @@ internal fun BridgeActivity.openAbout() {
         })
         details.addView(aboutLink("Releases and downloads") { openLink("$releaseRoot/releases") })
         details.addView(aboutLink("Report an issue") { openLink("$releaseRoot/issues") })
+        details.addView(aboutLink("App source license", external = false) {
+            popup.dismiss()
+            openLicenseDocument("a4-tv-bridge.txt", "App source license", "Back to About") { openAbout() }
+        })
         body.addView(details, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
 
         val noticesCard = outlinedCard(surfaceSubtle, radius = 16, stroke = 1).apply {
@@ -89,6 +93,26 @@ private val noticeTitles = linkedMapOf(
     "bouncy-castle.md" to "Bouncy Castle license"
 )
 
+private fun BridgeActivity.openLicenseDocument(
+    filename: String,
+    title: String,
+    backLabel: String,
+    onBack: () -> Unit
+) {
+    showSheet(title, closeIcon = false) { dialog, area ->
+        val license = assets.open("licenses/$filename").bufferedReader().use { it.readText() }
+        val source = column().apply {
+            addView(text(license, 13, muted).apply {
+                setLineSpacing(px(2).toFloat(), 1f)
+                setTextIsSelectable(true)
+            })
+        }
+        attachSheetBody(area, source)
+        area.addView(button(backLabel, emphasis = true) { dialog.dismiss(); onBack() },
+            LinearLayout.LayoutParams(BridgeActivity.MATCH, px(50)).apply { topMargin = px(8) })
+    }
+}
+
 private fun BridgeActivity.openNotices() {
     showSheet("Open-source notices", closeIcon = false) { popup, frame ->
         val body = column()
@@ -104,13 +128,7 @@ private fun BridgeActivity.openNotices() {
         shown.forEachIndexed { idx, (filename, title) ->
             listCard.addView(aboutLink(title, external = false) {
                 popup.dismiss()
-                showSheet(title, closeIcon = false) { dialog, area ->
-                    val license = assets.open("licenses/$filename").bufferedReader().use { it.readText() }
-                    val source = column().apply { addView(text(license, 13, muted).apply { setTextIsSelectable(true) }) }
-                    attachSheetBody(area, source)
-                    area.addView(button("Back to notices", emphasis = true) { dialog.dismiss(); openNotices() },
-                        LinearLayout.LayoutParams(BridgeActivity.MATCH, px(50)).apply { topMargin = px(8) })
-                }
+                openLicenseDocument(filename, title, "Back to notices") { openNotices() }
             })
             if (idx < shown.lastIndex) listCard.addView(rule())
         }
