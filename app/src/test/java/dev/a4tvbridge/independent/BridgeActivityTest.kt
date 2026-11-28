@@ -61,14 +61,14 @@ class BridgeActivityTest {
             app.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE)
                 .edit().putString("theme", "DARK").commit()
             controller.setup()
-            assertEquals(android.graphics.Color.BLACK, app.surface)
-            assertEquals(0xFFB0DEFF.toInt(), app.accent)
+            assertEquals(0xFF05070A.toInt(), app.surface)
+            assertEquals(0xFF38BDF8.toInt(), app.accent)
             flatten(app.window.decorView).first { it.contentDescription == "Appearance" }.performClick()
             val options = flatten(app.window.decorView).toList()
             assertTrue(options.any { it.contentDescription == "Dark" && it.isSelected })
             assertTrue(options.any { it.contentDescription == "System Default" })
             options.first { it.contentDescription == "Light" }.performClick()
-            assertEquals(android.graphics.Color.WHITE, app.surface)
+            assertEquals(0xFFF1F5F9.toInt(), app.surface)
             assertEquals(0xFF00587B.toInt(), app.accent)
         }
     }

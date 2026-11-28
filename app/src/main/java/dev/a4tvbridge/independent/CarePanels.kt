@@ -442,6 +442,14 @@ private data class TvCheckReport(
             activeHome.substringBefore('/') != preferredHome.substringBefore('/')
 }
 
+private data class StatTile(
+    val label: String,
+    val value: String,
+    val sub: String,
+    val subColor: Int,
+    val onClick: () -> Unit
+)
+
 internal fun BridgeActivity.checkTv() {
     val tv = connection ?: return
     val owner = content
@@ -605,7 +613,6 @@ internal fun BridgeActivity.checkTv() {
             val adbSafe = !checkReport.protection.adbInsecureWarning
             val adbRaw = checkReport.protection.adbSecureRaw.ifBlank { if (adbSafe) "1" else "0" }
 
-            data class StatTile(val label: String, val value: String, val sub: String, val subColor: Int, val onClick: () -> Unit)
             val statTiles = listOf(
                 StatTile(
                     "Cleaned Apps",

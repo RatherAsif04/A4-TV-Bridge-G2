@@ -88,14 +88,21 @@ internal fun BridgeActivity.tiles(parent: LinearLayout, columns: Int = 2, vararg
     }
 }
 
+private data class DockTab(
+    val label: String,
+    val description: String,
+    val icon: Mark,
+    val destination: Panel?
+)
+
 internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
     // Exact 5-tab dock from screenshots: Home | Apps | [Control FAB] | TV Care | Shell
     val options = listOf(
-        Triple("Home", Mark.DASHBOARD, Panel.DASHBOARD),
-        Triple("Apps", Mark.APPS, Panel.LIBRARY),
-        Triple("Control", Mark.CONTROL, null),
-        Triple("TV Care", Mark.CARE, Panel.CARE),
-        Triple("Shell", Mark.SHELL, Panel.SHELL)
+        DockTab("Home", "Dashboard", Mark.DASHBOARD, Panel.DASHBOARD),
+        DockTab("Apps", "Apps & Files", Mark.APPS, Panel.LIBRARY),
+        DockTab("Control", "Control", Mark.CONTROL, null),
+        DockTab("TV Care", "TV Care", Mark.CARE, Panel.CARE),
+        DockTab("Shell", "ADB Shell / Terminal", Mark.SHELL, Panel.SHELL)
     )
     val library = setOf(Panel.LIBRARY, Panel.APPS, Panel.FILES, Panel.INSTALL, Panel.SEND)
     val care = setOf(Panel.CARE, Panel.CLEAN, Panel.CHECK, Panel.RESTORE, Panel.SPACE, Panel.INFO, Panel.HOME)
@@ -113,14 +120,14 @@ internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
         addView(surfaceView, FrameLayout.LayoutParams(BridgeActivity.MATCH, px(66), Gravity.BOTTOM))
         val strip = row().apply { gravity = Gravity.BOTTOM; clipChildren = false }
         addView(strip, FrameLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.MATCH, Gravity.BOTTOM))
-        for ((label, icon, destination) in options) {
+        for ((label, description, icon, destination) in options) {
             val highlight = destination == selected
             val color = if (highlight) accent else muted
             val tab = column().apply {
                 gravity = Gravity.CENTER
                 isFocusable = true
                 isClickable = true
-                contentDescription = label
+                contentDescription = description
                 background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 16))
                 setOnClickListener { if (destination == null) control() else show(destination) }
                 if (destination == null) {

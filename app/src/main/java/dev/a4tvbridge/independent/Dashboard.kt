@@ -17,6 +17,16 @@ import android.widget.TextView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private data class QuickCardSpec(
+    val title: String,
+    val subtitle: String,
+    val status: String,
+    val icon: Mark,
+    val accentColor: Int,
+    val badgeFill: Int,
+    val action: () -> Unit
+)
+
 internal fun BridgeActivity.dashboard() {
     val tv = connection
     if (tv == null) {
@@ -156,15 +166,6 @@ internal fun BridgeActivity.dashboard() {
         LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
 
     val savedOffCount = savedChanges(tv).size
-    data class QuickCardSpec(
-        val title: String,
-        val subtitle: String,
-        val status: String,
-        val icon: Mark,
-        val accentColor: Int,
-        val badgeFill: Int,
-        val action: () -> Unit
-    )
     val quickCards = listOf(
         QuickCardSpec(
             "Clean Up TV",
