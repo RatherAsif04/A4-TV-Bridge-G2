@@ -1,6 +1,6 @@
-# How to Use A4 TV Bridge G2 (v1.4.2)
+# How to Use A4 TV Bridge (v1.4.2)
 
-This step-by-step guide walks through installing **A4 TV Bridge G2**, connecting your TV, running CleanYourTV automatic debloating, verifying changes after a reboot, sideloading apps, transferring files, and updating the app directly from GitHub Releases.
+This step-by-step guide walks through installing **A4 TV Bridge**, connecting your TV, running CleanYourTV automatic debloating, verifying changes after a reboot, sideloading apps, transferring files, and updating the app directly from GitHub Releases.
 
 ---
 

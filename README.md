@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/screenshots/a4-logo.png" alt="A4 TV Bridge Logo" width="96" height="96" />
 
-  <h1>A4 TV Bridge G2</h1>
+  <h1>A4 TV Bridge</h1>
 
   <p>
     <strong>Local-network ADB controller, CleanYourTV auto-debloater, live telemetry dashboard, file manager, and theme studio for Android TV, Google TV, and compatible Fire TV devices.</strong>
@@ -70,7 +70,7 @@
 
 ## About
 
-**A4 TV Bridge G2** turns any Android phone or tablet (Android 8.0+) into a fast, private, zero-tracking local-network ADB command center for your television.
+**A4 TV Bridge** turns any Android phone or tablet (Android 8.0+) into a fast, private, zero-tracking local-network ADB command center for your television.
 
 - **Direct Local Control**: Commands, files, captures, and telemetry travel directly between your phone and your TV over your local network — no cloud relay, no account login, and no analytics.
 - **Built for Safety**: Every destructive or system-modifying workflow includes live ADB readback verification, boot-loop protection (`CORE_RE` + Home/HDMI/Wi-Fi setup guards), and one-tap undo in **Restore**.
@@ -172,6 +172,6 @@ Every push to `main` runs `.github/workflows/build-apk.yml`:
 
 ## Licenses & Attribution
 
-- **A4 TV Bridge G2**: Copyright © RatherAsif04 and A4 TV Bridge contributors — licensed under the **[MIT License](LICENSE)**.
+- **A4 TV Bridge**: Copyright © RatherAsif04 and A4 TV Bridge contributors — licensed under the **[MIT License](LICENSE)**.
 - **CleanYourTV Device Profiles**: Bundled debloat lists (`app/src/main/assets/profiles.json` and `profiles_meta.json`, 518 profiles) synced from [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv) under the **MIT License**.
 - **Third-Party Libraries**: See **[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)** for full notices (`kadb`, `Conscrypt`, `AndroidX`, `Kotlinx Coroutines`, `CleanYourTV`).

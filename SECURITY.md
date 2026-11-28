@@ -2,7 +2,7 @@
 
 ## Safe Usage Guidelines
 
-Use **A4 TV Bridge G2** only with TVs you own or administer. ADB grants Android shell access on the connected television:
+Use **A4 TV Bridge** only with TVs you own or administer. ADB grants Android shell access on the connected television:
 
 - Keep Wireless Debugging / Network ADB enabled only on a **trusted local network**.
 - Approve only debugging prompts you recognize, and disable debugging or revoke authorizations when you finish.

@@ -87,7 +87,6 @@ class BridgeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TvConnection.configureIdentity(filesDir)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         draw()
@@ -171,11 +170,12 @@ class BridgeActivity : Activity() {
             view.setPadding(bars.left + sides, bars.top + px(12), bars.right + sides, maxOf(bars.bottom, keyboard.bottom))
             insets
         }
-        WindowCompat.getInsetsController(window, shell).apply {
+        setContentView(shell)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = !dark
             isAppearanceLightNavigationBars = !dark
         }
-        setContentView(shell)
         ViewCompat.requestApplyInsets(shell)
 
         val header = row()

@@ -39,7 +39,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = 'f595a7911a91cd054f938bbcb3a6410397be8cd7c4cc94965ed6da579c867cbd';
+const ZIP_SHA256 = '3cdaf061d5d033f4ad8f1ae77cf557ba2a06a30fb0600c79deecbf6ddd5a4e5d';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}

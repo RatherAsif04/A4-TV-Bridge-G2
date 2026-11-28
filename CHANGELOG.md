@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **A4 TV Bridge G2** (`dev.a4tvbridge.app`) are documented in this file.
+All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in this file.
 
 ---
 
