@@ -181,6 +181,7 @@ internal fun BridgeActivity.remote() {
         setText(remoteDraftText)
         setSelection(text.length)
         textSize = 14f
+        backgroundTintList = null
         background = card(surfaceElevated, 12, outlined = true)
         setPadding(px(12), px(10), px(12), px(10))
         addTextChangedListener(object : android.text.TextWatcher {

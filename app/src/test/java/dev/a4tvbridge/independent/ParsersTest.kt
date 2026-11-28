@@ -449,4 +449,46 @@ class ParsersTest {
         assertFalse(isKillableUserProcess("surfaceflinger", userApps))
         assertFalse(isKillableUserProcess("com.android.providers.settings", userApps))
     }
+
+    @Test fun parsesApkPathsAndExtractsOriginalIconFromRemoteZipApk() {
+        val paths = parsePackageApkPaths("""
+            package:/data/app/~~abc==/app.netmirror.newtv-xyz==/base.apk=app.netmirror.newtv
+            package:/data/app/~~def==/com.amazon.amazonvideo.livingroom-123==/base.apk=com.amazon.amazonvideo.livingroom
+            package:/system/priv-app/TvSettings/TvSettings.apk=com.android.tv.settings
+        """.trimIndent())
+        assertEquals(3, paths.size)
+        assertEquals("/data/app/~~abc==/app.netmirror.newtv-xyz==/base.apk", paths["app.netmirror.newtv"])
+        assertEquals("/system/priv-app/TvSettings/TvSettings.apk", paths["com.android.tv.settings"])
+
+        // Build a genuine in-memory ZIP archive mimicking an Android TV APK
+        val fakeIconPayload = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + ByteArray(640) { (it % 251).toByte() }
+        val fakeSmallNotif = ByteArray(400) { 0x11 }
+        val fakeBanner = ByteArray(500) { 0x22 }
+        val zipBytes = java.io.ByteArrayOutputStream().apply {
+            java.util.zip.ZipOutputStream(this).use { zos ->
+                zos.putNextEntry(java.util.zip.ZipEntry("res/drawable-xhdpi-v4/ic_stat_notification.png"))
+                zos.write(fakeSmallNotif)
+                zos.closeEntry()
+                zos.putNextEntry(java.util.zip.ZipEntry("res/drawable-xhdpi-v4/tv_banner.png"))
+                zos.write(fakeBanner)
+                zos.closeEntry()
+                zos.putNextEntry(java.util.zip.ZipEntry("res/mipmap-xxhdpi-v4/ic_launcher.png"))
+                zos.write(fakeIconPayload)
+                zos.closeEntry()
+            }
+        }.toByteArray()
+
+        val eocd = parseZipEocd(zipBytes)!!
+        assertEquals(3, eocd.entryCount)
+        val cdOffset = findEocdOffset(zipBytes) - eocd.centralDirSize.toInt()
+        val entries = parseZipCentralDirectory(zipBytes, cdOffset, eocd.centralDirSize)
+        assertEquals(3, entries.size)
+
+        val picked = pickIconEntryByName(entries)!!
+        assertEquals("res/mipmap-xxhdpi-v4/ic_launcher.png", picked.name)
+
+        val slice = zipBytes.copyOfRange(picked.localHeaderOffset.toInt(), zipBytes.size)
+        val extracted = extractZipEntryPayload(slice, picked)!!
+        assertTrue(fakeIconPayload.contentEquals(extracted))
+    }
 }

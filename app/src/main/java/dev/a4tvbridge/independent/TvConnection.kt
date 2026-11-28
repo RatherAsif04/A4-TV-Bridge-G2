@@ -243,6 +243,40 @@ internal class TvConnection private constructor(
         }
     }
 
+    fun packageApkPaths(): Map<String, String> =
+        parsePackageApkPaths(command("pm list packages -f --user 0 2>/dev/null || true").text)
+
+    fun packageSplitPaths(name: String): List<String> =
+        command("pm path ${packageId(name)} 2>/dev/null || true").text.lines()
+            .filter { it.startsWith("package:/") && it.endsWith(".apk") }
+            .map { it.removePrefix("package:").trim() }
+            .distinct()
+
+    fun readRemoteTail(path: String, maxBytes: Int): ByteArray {
+        require(path.startsWith("/") && '\u0000' !in path && maxBytes in 1..4_194_304)
+        return readExecBytes("tail -c $maxBytes ${shellText(path)} 2>/dev/null", maxBytes)
+    }
+
+    fun readRemoteRange(path: String, offset: Long, length: Int): ByteArray {
+        require(path.startsWith("/") && '\u0000' !in path && offset >= 0L && length in 1..6_291_456)
+        return readExecBytes("tail -c +${offset + 1} ${shellText(path)} 2>/dev/null | head -c $length", length)
+    }
+
+    private fun readExecBytes(shellCommand: String, limit: Int): ByteArray = synchronized(commandLock) {
+        client.open("exec:$shellCommand").use { stream ->
+            val output = ByteArrayOutputStream(minOf(limit, 65_536))
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = stream.source.read(buffer)
+                if (count < 0) break
+                val remaining = limit - output.size()
+                if (remaining <= 0) break
+                output.write(buffer, 0, minOf(count, remaining))
+            }
+            output.toByteArray()
+        }
+    }
+
     fun openApp(name: String) {
         val id = packageId(name)
         val target = listOf("android.intent.category.LEANBACK_LAUNCHER", "android.intent.category.LAUNCHER")

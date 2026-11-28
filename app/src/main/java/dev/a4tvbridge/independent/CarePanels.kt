@@ -930,6 +930,7 @@ internal fun BridgeActivity.cleanup() {
             val filter = input("Search brand, model, or codename…").apply {
                 setSingleLine()
                 setPadding(px(12), px(10), px(12), px(10))
+                backgroundTintList = null
                 background = card(surface, 12, outlined = true)
             }
             area.addView(filter, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })

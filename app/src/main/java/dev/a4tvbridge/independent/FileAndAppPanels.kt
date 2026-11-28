@@ -246,6 +246,7 @@ internal fun BridgeActivity.apps() {
         setSingleLine()
         setText(appsSearchQuery)
         setSelection(text.length)
+        backgroundTintList = null
         background = card(field, 14, outlined = true)
         setPadding(px(14), px(12), px(14), px(12))
     }

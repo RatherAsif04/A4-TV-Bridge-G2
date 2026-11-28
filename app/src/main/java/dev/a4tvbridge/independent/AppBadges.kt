@@ -1,7 +1,12 @@
 package dev.a4tvbridge.independent
 
+import android.graphics.Bitmap
+import android.graphics.Outline
 import android.view.Gravity
-import android.widget.TextView
+import android.view.View
+import android.view.ViewOutlineProvider
+import android.widget.FrameLayout
+import android.widget.ImageView
 
 internal data class AppBadgeStyle(val monogram: String, val fill: Int, val ink: Int = 0xFFFFFFFF.toInt())
 
@@ -11,7 +16,12 @@ internal object AppBrandRegistry {
         "youtube" to AppBadgeStyle("YT", 0xFFE11D48.toInt()),
         "netflix" to AppBadgeStyle("N", 0xFFB91C1C.toInt()),
         "amazon.avod" to AppBadgeStyle("PV", 0xFF0284C7.toInt()),
+        "amazonvideo" to AppBadgeStyle("PV", 0xFF0284C7.toInt()),
         "primevideo" to AppBadgeStyle("PV", 0xFF0284C7.toInt()),
+        "minitv" to AppBadgeStyle("MT", 0xFFEC4899.toInt()),
+        "netmirror" to AppBadgeStyle("NM", 0xFFDC2626.toInt()),
+        "tvplayer" to AppBadgeStyle("TP", 0xFF00587B.toInt()),
+        "mbox" to AppBadgeStyle("MB", 0xFF0F766E.toInt()),
         "disney" to AppBadgeStyle("D+", 0xFF1D4ED8.toInt()),
         "jellyfin" to AppBadgeStyle("JF", 0xFF7C3AED.toInt()),
         "plex" to AppBadgeStyle("PX", 0xFFD97706.toInt()),
@@ -65,11 +75,63 @@ internal object AppBrandRegistry {
     }
 }
 
-internal fun BridgeActivity.appBadge(packageName: String): TextView {
+internal fun BridgeActivity.appBadge(packageName: String): FrameLayout {
     val style = AppBrandRegistry.resolve(packageName)
-    return text(style.monogram, 12, style.ink, bold = true).apply {
+    val radiusPx = px(10).toFloat()
+    val container = FrameLayout(this).apply {
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
+            }
+        }
+        clipToOutline = true
+    }
+
+    fun applyBitmap(bitmap: Bitmap, animate: Boolean) {
+        val isWideBanner = bitmap.width > bitmap.height * 1.35f
+        val image = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            contentDescription = displayName(packageName)
+            scaleType = if (isWideBanner) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
+            if (isWideBanner) {
+                setPadding(px(2), px(2), px(2), px(2))
+            }
+            if (animate) alpha = 0f
+        }
+        container.background = card(surfaceElevated, 10, outlined = true)
+        container.removeAllViews()
+        container.addView(image, FrameLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.MATCH))
+        if (animate) {
+            image.animate().alpha(1f).setDuration(160L).start()
+        }
+    }
+
+    val immediate = TvAppIconLoader.getCachedOrLocal(this, packageName)
+    if (immediate != null) {
+        applyBitmap(immediate, animate = false)
+        return container
+    }
+
+    // Immediate crisp A4 monogram placeholder while real TV icon extracts in background
+    val monogram = text(style.monogram, 12, style.ink, bold = true).apply {
         gravity = Gravity.CENTER
         background = card(style.fill, 10, outlined = false)
         letterSpacing = 0.04f
     }
+    container.addView(monogram, FrameLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.MATCH))
+
+    if (connection != null) {
+        container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            private var requested = false
+            override fun onViewAttachedToWindow(v: View) {
+                if (requested) return
+                requested = true
+                TvAppIconLoader.requestFromTv(this@appBadge, packageName, v) { loaded ->
+                    applyBitmap(loaded, animate = true)
+                }
+            }
+            override fun onViewDetachedFromWindow(v: View) = Unit
+        })
+    }
+    return container
 }
