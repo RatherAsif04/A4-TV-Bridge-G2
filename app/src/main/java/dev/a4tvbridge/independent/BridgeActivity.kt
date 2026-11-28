@@ -197,11 +197,10 @@ class BridgeActivity : Activity() {
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 }
                 header.addView(topLink("Feedback") { openLink("$releaseRoot/issues") },
-                    LinearLayout.LayoutParams(0, WRAP, 1f))
+                    LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = px(16) })
                 header.addView(topLink("Appearance") { show(Panel.APPEARANCE) },
-                    LinearLayout.LayoutParams(0, WRAP, 1.15f))
-                header.addView(topLink("Restore a TV") { connectionPicker(after = Panel.RESTORE) },
-                    LinearLayout.LayoutParams(0, WRAP, 1.2f))
+                    LinearLayout.LayoutParams(WRAP, WRAP))
+                header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
                 addHeaderAction(Mark.INFO, "About A4 TV Bridge", ::openAbout)
             }
             page in primaryPanels -> {
