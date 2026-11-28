@@ -297,4 +297,13 @@ class ParsersTest {
             assertTrue(brand.steps.last().finalStep)
         }
     }
+
+    @Test fun mapsConnectionPhasesToOrderedScannerSteps() {
+        assertEquals(1, activeConnectionStep(ConnectionPhase.IDLE))
+        assertEquals(1, activeConnectionStep(ConnectionPhase.SCANNING))
+        assertEquals(2, activeConnectionStep(ConnectionPhase.CONNECTING))
+        assertEquals(3, activeConnectionStep(ConnectionPhase.AWAITING_APPROVAL))
+        assertEquals(4, activeConnectionStep(ConnectionPhase.CONNECTED))
+        assertEquals(2, activeConnectionStep(ConnectionPhase.ERROR))
+    }
 }

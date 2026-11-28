@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 internal enum class Panel {
     DASHBOARD, LIBRARY, APPS, FILES, SHELL, CARE, CLEAN, CHECK, RESTORE, SPACE, SEND,
-    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME, ADB_GUIDE
+    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME, ADB_GUIDE, SCANNER
 }
 internal val releaseRoot = "https://github.com/RatherAsif04/A4-TV-Bridge"
 
@@ -48,8 +48,13 @@ class BridgeActivity : Activity() {
     internal val folders = mutableListOf(TvPath.root)
     internal val folder get() = folders.last()
     private var polling: Job? = null
+    private var connectJob: Job? = null
     private val inputQueue = Channel<Pair<TvConnection, TvConnection.() -> Unit>>(32)
     private var activeOperation = false
+    internal var scannerAfter: Panel = Panel.DASHBOARD
+    internal var connectionStatus: ConnectionStatusState = ConnectionStatusState()
+        private set
+    internal var onConnectionStatusChanged: ((ConnectionStatusState) -> Unit)? = null
     internal lateinit var content: LinearLayout
         private set
     internal lateinit var screenBody: FrameLayout
@@ -155,6 +160,27 @@ class BridgeActivity : Activity() {
         draw()
     }
 
+    internal fun openScanner(after: Panel = Panel.DASHBOARD) {
+        scannerAfter = after
+        if (connectionStatus.phase == ConnectionPhase.CONNECTED || connectionStatus.phase == ConnectionPhase.ERROR) {
+            updateConnectionStatus(ConnectionStatusState(ConnectionPhase.IDLE))
+        }
+        show(Panel.SCANNER)
+    }
+
+    internal fun updateConnectionStatus(state: ConnectionStatusState) {
+        connectionStatus = state
+        onConnectionStatusChanged?.invoke(state)
+    }
+
+    internal fun cancelActiveConnection() {
+        connectJob?.cancel()
+        connectJob = null
+        activeOperation = false
+        report("")
+        updateConnectionStatus(ConnectionStatusState(ConnectionPhase.IDLE))
+    }
+
     internal fun refresh() = draw()
 
     private fun draw() {
@@ -187,9 +213,28 @@ class BridgeActivity : Activity() {
             }, LinearLayout.LayoutParams(px(48), px(48)))
         }
         val settingsPage = page in setOf(Panel.APPEARANCE, Panel.ADB_GUIDE)
+        val scannerPage = page == Panel.SCANNER
         val welcome = connection == null && page == Panel.DASHBOARD
         when {
             settingsPage -> header.addView(backButton("Back"))
+            scannerPage -> {
+                header.addView(backButton("Find & Connect TV"))
+                header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                val lan = tvLocalLink()
+                val lanReady = lan != null
+                val pillFill = if (lanReady) greenBg else if (dark) 0xFF2A1E08.toInt() else 0xFFFFFBEB.toInt()
+                val pillStroke = if (lanReady) greenStroke else orange
+                val pillText = if (lanReady) (if (lan.ethernet) "Ethernet" else "Wi-Fi Ready") else "Check Wi-Fi"
+                val pillInk = if (lanReady) (if (dark) 0xFF6EE7B7.toInt() else green) else orange
+                val lanChip = row().apply {
+                    background = card(pillFill, 20, outlined = false).apply { setStroke(px(1), pillStroke) }
+                    setPadding(px(10), px(6), px(11), px(6))
+                    addView(View(this@BridgeActivity).apply { background = rounded(pillStroke, 8) },
+                        LinearLayout.LayoutParams(px(7), px(7)).apply { marginEnd = px(6) })
+                    addView(text(pillText, 12, pillInk, bold = true))
+                }
+                header.addView(lanChip)
+            }
             welcome -> {
                 fun topLink(label: String, action: () -> Unit) = textButton(label, action = action).apply {
                     textSize = 14f
@@ -266,7 +311,7 @@ class BridgeActivity : Activity() {
         if (connection != null && page in primaryPanels) {
             shell.addView(dock(page, ::controls), LinearLayout.LayoutParams(MATCH, px(84)).apply { bottomMargin = px(14) })
         }
-        if (page !in setOf(Panel.DASHBOARD, Panel.APPEARANCE, Panel.ADB_GUIDE) && connection == null) {
+        if (page !in setOf(Panel.DASHBOARD, Panel.APPEARANCE, Panel.ADB_GUIDE, Panel.SCANNER) && connection == null) {
             heading("Connect a TV")
             paragraph("Authorize a TV connection to use this tool.")
             addButton("Connect", emphasis = true) { connectionPicker() }
@@ -291,6 +336,7 @@ class BridgeActivity : Activity() {
             Panel.APPEARANCE -> appearancePage()
             Panel.HOME -> homeScreenPage()
             Panel.ADB_GUIDE -> adbGuidePage()
+            Panel.SCANNER -> tvScannerPage()
         }
     }
 
@@ -360,28 +406,79 @@ class BridgeActivity : Activity() {
 
     internal fun connect(address: TvAddress, pairingPort: Int? = null, code: String = "", after: Panel = Panel.DASHBOARD) {
         if (activeOperation) return report("A connection or TV command is already in progress.")
-        backgroundTask({
-            if (pairingPort != null) {
-                try {
-                    TvConnection.pair(address, pairingPort, code)
-                } catch (cancel: CancellationException) {
-                    throw cancel
-                } catch (problem: Exception) {
-                    throw java.io.IOException("Pairing failed. Open a new code on the TV and confirm both ports.", problem)
+        activeOperation = true
+        val targetLabel = address.toString()
+        updateConnectionStatus(
+            ConnectionStatusState(
+                phase = ConnectionPhase.CONNECTING,
+                targetLabel = targetLabel,
+                detail = if (pairingPort == null) "Opening ADB session with $address…" else "Pairing with $address…",
+                targetAddress = address
+            )
+        )
+        if (page != Panel.SCANNER) {
+            report(if (pairingPort == null) "Connecting to $address… Press Allow if the TV shows a debugging prompt."
+                else "Pairing with the TV…")
+        }
+        connectJob?.cancel()
+        connectJob = scope.launch {
+            val approvalPrompt = launch {
+                kotlinx.coroutines.delay(1200)
+                if (connectionStatus.phase == ConnectionPhase.CONNECTING) {
+                    updateConnectionStatus(
+                        ConnectionStatusState(
+                            phase = ConnectionPhase.AWAITING_APPROVAL,
+                            targetLabel = targetLabel,
+                            detail = "Select 'Always allow' and press OK on your TV",
+                            targetAddress = address
+                        )
+                    )
                 }
             }
-            TvConnection.connect(address)
-        }, onError = { error ->
-            val explanation = when (error) {
-                is java.net.UnknownHostException -> "The TV address could not be found. Check the address shown by the TV."
-                is java.net.ConnectException, is java.net.NoRouteToHostException ->
-                    "Could not reach $address. Check the TV’s IP address, debugging port, and Wi-Fi or Ethernet connection."
-                is java.net.SocketTimeoutException ->
-                    "The TV did not finish debugging authorization. Try again and press Allow on the TV."
-                else -> error.message?.take(220) ?: "The TV could not authorize the connection."
+            val connected = try {
+                withContext(Dispatchers.IO) {
+                    if (pairingPort != null) {
+                        try {
+                            TvConnection.pair(address, pairingPort, code)
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (problem: Exception) {
+                            throw java.io.IOException("Pairing failed. Open a new code on the TV and confirm both ports.", problem)
+                        }
+                    }
+                    TvConnection.connect(address)
+                }
+            } catch (cancel: CancellationException) {
+                approvalPrompt.cancel()
+                activeOperation = false
+                throw cancel
+            } catch (error: Exception) {
+                approvalPrompt.cancel()
+                activeOperation = false
+                val explanation = when (error) {
+                    is java.net.UnknownHostException -> "The TV address could not be found. Check the address shown by the TV."
+                    is java.net.ConnectException, is java.net.NoRouteToHostException ->
+                        "Could not reach $address. Check the TV’s IP address, debugging port, and Wi-Fi or Ethernet connection."
+                    is java.net.SocketTimeoutException ->
+                        "The TV did not finish debugging authorization. Try again and press Allow on the TV."
+                    else -> error.message?.take(220) ?: "The TV could not authorize the connection."
+                }
+                updateConnectionStatus(
+                    ConnectionStatusState(
+                        phase = ConnectionPhase.ERROR,
+                        targetLabel = targetLabel,
+                        detail = explanation,
+                        targetAddress = address
+                    )
+                )
+                if (page != Panel.SCANNER) report(explanation)
+                return@launch
+            } finally {
+                approvalPrompt.cancel()
             }
-            report(explanation)
-        }) { connected ->
+            activeOperation = false
+            connectJob = null
+            report("")
             val previous = connection
             connection = connected
             if (previous?.serial != connected.serial) {
@@ -389,14 +486,20 @@ class BridgeActivity : Activity() {
                 shellOutput = ""
             }
             if (previous != null) scope.launch(Dispatchers.IO) { previous.close() }
-            TvDirectory(this).remember(connected)
+            TvDirectory(this@BridgeActivity).remember(connected)
+            updateConnectionStatus(
+                ConnectionStatusState(
+                    phase = ConnectionPhase.CONNECTED,
+                    targetLabel = connected.model,
+                    detail = "${connected.address} · Connected",
+                    targetAddress = connected.address
+                )
+            )
             folders.clear()
             folders.add(TvPath.root)
             screens.clear()
             show(after, rememberPage = false)
         }
-        report(if (pairingPort == null) "Connecting to $address… Press Allow if the TV shows a debugging prompt."
-            else "Pairing with the TV…")
     }
 
     internal fun disconnect() {

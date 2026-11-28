@@ -78,12 +78,21 @@ class BridgeActivityTest {
         controller.use {
             val app = controller.get()
             flatten(app.window.decorView).first { it.contentDescription == "Connect your TV" }.performClick()
-            val setup = ShadowDialog.getLatestDialog()
-            val names = flatten(setup.window!!.decorView).mapNotNull { it.contentDescription }.toList()
-            assertTrue("Find TVs on this network" in names)
-            assertTrue("Enter TV address" in names)
-            assertTrue("Pair with a code" in names)
-            setup.dismiss()
+            val scannerViews = flatten(app.window.decorView).toList()
+            val names = scannerViews.mapNotNull { it.contentDescription }
+            val texts = scannerViews.filterIsInstance<TextView>().map { it.text.toString() }
+            assertTrue("Rescan" in names)
+            assertTrue("Enter IP Manually" in names)
+            assertTrue("Pair with Code" in names)
+            assertTrue("Scan" in texts)
+            assertTrue("Connect" in texts)
+            assertTrue("Approve on TV" in texts)
+
+            scannerViews.first { it.contentDescription?.toString()?.contains("ADB Debugging Guide") == true }.performClick()
+            val guideTexts = flatten(app.window.decorView).filterIsInstance<TextView>().map { it.text.toString() }
+            assertTrue("ADB Debugging Guide" in guideTexts)
+            assertTrue("Google TV" in guideTexts)
+            assertTrue("Fire TV" in guideTexts)
         }
     }
 
