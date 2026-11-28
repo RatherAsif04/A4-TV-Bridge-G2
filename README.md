@@ -30,6 +30,7 @@
     <a href="#screenshots">Screenshots</a> &bull;
     <a href="#about">About</a> &bull;
     <a href="#all-features">All Features</a> &bull;
+    <a href="#device-matrix">Device Matrix</a> &bull;
     <a href="#how-to-use">How to Use</a> &bull;
     <a href="docs/FEATURES.md">Full Feature Guide</a> &bull;
     <a href="CHANGELOG.md">Changelog</a> &bull;
@@ -121,9 +122,9 @@
 - **Full TV Storage Browser**: Navigate `/sdcard` with quick destination pills, create folders, rename, move, delete, upload from phone, or download files back to your phone (compatible with Android 8–16 Toybox).
 - **Direct Send Files to TV**: Push APKs and media directly into `Downloads`, `Movies`, `Music`, `Pictures`, or `Documents` under an organized `A4TVBridge/` folder without extra intermediate popups.
 
-### 7. Live Device Info &amp; Network Telemetry
-- **4 Diagnostic Tabs**: `Overview` (live CPU/Memory/Storage gauges, uptime, Private DNS), `CPU` (utilization &amp; per-core metrics), `Memory` (RAM, reclaimable, swap &amp; top process PSS/RSS), and `Network` (1-second live Down/Up area chart, Wi-Fi band/RSSI/link speed, and per-app UID traffic attribution).
-- **Share Device Info**: Export a clean text summary of your TV's hardware and network profile in one tap.
+### 7. Live Device Info, Connected Devices &amp; Network Telemetry
+- **4 Diagnostic Tabs**: `Overview` (live CPU/Memory/Storage gauges, **Connected Devices** card with category icons for paired/connected Bluetooth remotes, phones, audio, gamepads, TVs &amp; streaming sticks plus active **Audio Output**, uptime &amp; Private DNS), `CPU` (utilization, per-core metrics &amp; **CPU by Process Group**), `Memory` (RAM, reclaimable, swap &amp; top process PSS/RSS), and `Network` (1-second live Down/Up area chart, Wi-Fi band/RSSI/link speed, and per-app UID traffic attribution).
+- **Share Device Info**: Export a clean text summary of your TV's hardware, connected devices, audio route, and network profile in one tap.
 
 ### 8. Home Launchers, 1080p Theme Studio &amp; Block Ads (Private DNS)
 - **Launcher Switcher &amp; 1-Click Projectivy**: Lists real TV launchers (filtering out `FallbackHome`, `setupwraith`, and `factorytest`), switches your default Home launcher, remembers it for **Check my TV**, and offers 1-tap **Install / Update** for Projectivy Launcher.
@@ -134,6 +135,35 @@
 - **Upgraded ADB Shell**: Run TV commands with `13sp` **JetBrains Mono** output, quick command preset chips, clickable recent command history, and exit code feedback.
 - **Appearance &amp; Adaptive Design**: Switch instantly between **System Default**, **Light**, **Dark**, and true-black **AMOLED Black**, toggle **Android 12+ Material You Dynamic Color**, and enjoy semantic auto-dismissing status banners and D-pad focus support.
 - **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge` releases silently on startup (6-hour throttle) and on demand via **About → Check for updates**, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's installer in one tap.
+
+---
+
+## Device Matrix
+
+> **Legend:** ✅ Supported &nbsp;|&nbsp; ⚠️ Partial / Firmware-dependent &nbsp;|&nbsp; ❌ Not supported by OS
+
+### Target TV &amp; Streaming Devices
+
+| Platform / Brand | OS Versions | ADB Connection | Clean Up TV | Private DNS | Launcher Switch | Live Telemetry (CPU / RAM / BT / Audio) | Notes |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Google TV / Chromecast / Streamer** | Android TV 11–14+ | ✅ TLS &amp; 5555 | ✅ Exact profiles | ✅ | ✅ | ✅ | Supports 6-digit Wireless Debugging pairing |
+| **Sony BRAVIA (Android TV / Google TV)** | Android TV 9–14 | ✅ TLS / 5555 | ✅ Exact profiles | ✅ | ✅ | ✅ | HDMI/AV `TvInputService` auto-protected |
+| **Xiaomi Mi TV / Mi Box / Mi Stick** | Android TV 9–14 | ✅ 5555 / TLS | ✅ Exact profiles | ✅ | ✅ | ✅ | PatchWall &amp; `setupwraith` guards built in |
+| **TCL / Hisense / Thomson / Vu** | Android TV 9–14 | ✅ 5555 / TLS | ✅ Exact profiles | ✅ | ✅ | ✅ | Includes 518 CleanYourTV vendor lists |
+| **NVIDIA SHIELD TV (2015–Pro)** | Android TV 9–11 | ✅ 5555 | ✅ Exact profiles | ✅ | ✅ | ✅ | Full `dumpsys` &amp; Ethernet/Wi-Fi metrics |
+| **Onn 4K / Streaming Boxes** | Android TV 10–14 | ✅ TLS / 5555 | ✅ Exact profiles | ✅ | ✅ | ✅ | Fast setup with 1-Click Projectivy install |
+| **Operator STBs (Jio / Airtel Xstream)** | Android TV 9–12 | ✅ 5555 | ⚠️ Auto-detect | ⚠️ Varies | ⚠️ OEM lock | ✅ | Some operator ROMs lock stock launcher or Private DNS |
+| **Amazon Fire TV / Fire Stick** | Fire OS 6–8 | ✅ 5555 | ⚠️ Auto-detect | ⚠️ OS 7+ | ⚠️ Blocked on newer OS | ⚠️ Limited `netstats` | Amazon blocks default launcher remap on recent Fire OS updates |
+
+### Controller App (Phone / Tablet)
+
+| Category | Support | Notes |
+| :--- | :---: | :--- |
+| **Android 8.0 – 11 (API 26–30)** | ✅ | Full feature set with Light, Dark, and AMOLED Black themes |
+| **Android 12 – 16 (API 31–36+)** | ✅ | Adds Material You Dynamic Color, Android 13+ Predictive Back, and edge-to-edge insets |
+| **Tablets &amp; Foldables** | ✅ | Adaptive max-width centered layouts (`680dp` content cap) and responsive touch targets |
+
+> **Have a TV model to add?** Open **Device Info → Share Info** in the app and submit a short report via [GitHub Issues](https://github.com/RatherAsif04/A4-TV-Bridge/issues) with your TV model, Android version, and what worked.
 
 ---
 
