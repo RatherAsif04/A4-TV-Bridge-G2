@@ -15,7 +15,8 @@ import android.widget.ScrollView
 internal data class AppSheetGuidance(
     val summary: String,
     val warning: String,
-    val riskyUninstall: Boolean
+    val riskyUninstall: Boolean,
+    val cautious: Boolean = false
 )
 
 internal fun describeAppForSheet(
@@ -26,7 +27,8 @@ internal fun describeAppForSheet(
         return AppSheetGuidance(
             summary = "Uninstalling is permanent. Get it again from Google Play or its original source.",
             warning = "You installed this app. Uninstalling removes it and its data. You can reinstall it from its original source.",
-            riskyUninstall = true
+            riskyUninstall = true,
+            cautious = true
         )
     }
 
@@ -61,7 +63,7 @@ internal fun describeAppForSheet(
         "Preinstalled on this TV. Turning it off is easy to undo, and Restore can bring back apps removed for this TV."
     }
 
-    return AppSheetGuidance(summary = summary, warning = warning, riskyUninstall = false)
+    return AppSheetGuidance(summary = summary, warning = warning, riskyUninstall = false, cautious = cautious)
 }
 
 internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
@@ -92,7 +94,6 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         }
     }
 
-    // Centered drag handle
     val handle = View(this).apply { background = card(dim, 5, false) }
     sheet.addView(handle, LinearLayout.LayoutParams(px(36), px(4)).apply {
         gravity = Gravity.CENTER_HORIZONTAL
@@ -101,35 +102,89 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
 
     val body = column()
 
-    // Title + package ID + plain-English description
-    body.addView(text(title, 22, bold = true))
-    body.addView(text(id, 12, if (dark) accent else muted, bold = true).apply {
-        typeface = Typeface.MONOSPACE
-        setPadding(0, px(3), 0, px(8))
+    // 1. A4 TV Bridge App Identity Header (monogram badge + name + monospace package + status pill)
+    val headerRow = row()
+    headerRow.addView(appBadge(id), LinearLayout.LayoutParams(px(42), px(42)).apply { marginEnd = px(12) })
+    val titleCol = column().apply {
+        addView(text(title, 20, bold = true).apply {
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        addView(text(id, 11, if (dark) accent else muted).apply {
+            typeface = Typeface.MONOSPACE
+            setPadding(0, px(2), 0, 0)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+    }
+    headerRow.addView(titleCol, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(8) })
+
+    val pillLabel = when {
+        !item.enabled -> "Off"
+        item.system -> "Built-in"
+        else -> "Installed"
+    }
+    val pillFill = when {
+        !item.enabled -> if (dark) 0xFF1E170A.toInt() else 0xFFFFFBEB.toInt()
+        item.system -> tint
+        else -> greenBg
+    }
+    val pillStroke = when {
+        !item.enabled -> orange
+        item.system -> if (dark) 0xFF0284C7.toInt() else edge
+        else -> greenStroke
+    }
+    val pillInk = when {
+        !item.enabled -> orange
+        item.system -> accent
+        else -> if (dark) 0xFF6EE7B7.toInt() else green
+    }
+    headerRow.addView(text(pillLabel, 11, pillInk, bold = true).apply {
+        background = card(pillFill, 12, outlined = false).apply { setStroke(px(1), pillStroke) }
+        setPadding(px(10), px(5), px(10), px(5))
     })
-    body.addView(text(guidance.summary, 14, ink).apply {
+    body.addView(headerRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+        bottomMargin = px(10)
+    })
+
+    // Plain-English summary
+    body.addView(text(guidance.summary, 14, muted).apply {
         setLineSpacing(px(3).toFloat(), 1f)
         setPadding(0, 0, 0, px(12))
     })
 
-    // Warm safety callout box
-    val warningBg = if (dark) 0xFF241A0E.toInt() else 0xFFFFF1DF.toInt()
-    val warningInk = if (dark) 0xFFFDBA74.toInt() else 0xFF92400E.toInt()
-    val warningCard = text(guidance.warning, 13, warningInk).apply {
-        background = card(warningBg, 14, outlined = false).apply {
-            if (dark) setStroke(px(1), 0xFF78350F.toInt())
-        }
-        setLineSpacing(px(3).toFloat(), 1f)
-        setPadding(px(14), px(12), px(14), px(12))
+    // 2. A4-Styled Safety Notice Card (matches TV Scanner status card language)
+    val noticeBorder = if (guidance.cautious) orange else accent
+    val noticeFill = if (guidance.cautious) {
+        if (dark) 0xFF1E170A.toInt() else 0xFFFFFBEB.toInt()
+    } else {
+        tint
     }
-    body.addView(warningCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+    val noticeLabel = when {
+        guidance.riskyUninstall -> "USER INSTALLED APP"
+        guidance.cautious -> "THINK FIRST"
+        else -> "EASY TO UNDO"
+    }
+    val noticeCard = column().apply {
+        background = card(noticeFill, 16, outlined = false).apply { setStroke(px(1), noticeBorder) }
+        setPadding(px(14), px(11), px(14), px(12))
+        val tagRow = row()
+        tagRow.addView(View(this@packageOptions).apply { background = rounded(noticeBorder, 8) },
+            LinearLayout.LayoutParams(px(7), px(7)).apply { marginEnd = px(6) })
+        tagRow.addView(text(noticeLabel, 10, noticeBorder, bold = true).apply { letterSpacing = 0.08f })
+        addView(tagRow)
+        addView(text(guidance.warning, 13, ink).apply {
+            setLineSpacing(px(3).toFloat(), 1f)
+            setPadding(0, px(5), 0, 0)
+        })
+    }
+    body.addView(noticeCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
         bottomMargin = px(14)
     })
 
-    // Primary green Turn off / Turn on button
+    // 3. Primary A4 Action Button (Turn off / Turn on)
     val toggleLabel = if (item.enabled) "Turn off" else "Turn on"
-    val toggleFill = if (dark) 0xFF15803D.toInt() else 0xFF166534.toInt()
-    val toggleBtn = button(toggleLabel, description = "$toggleLabel $title") {
+    val toggleBtn = button(toggleLabel, description = "$toggleLabel $title", emphasis = true) {
         popup.dismiss()
         confirm(if (item.enabled) "Turn off $title?" else "Turn on $title?", id) {
             tvTask({
@@ -145,15 +200,21 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
             }
         }
     }.apply {
-        setTextColor(Color.WHITE)
-        textSize = 15f
-        background = RippleDrawable(ColorStateList.valueOf(ripple), rounded(toggleFill, 14), null)
+        if (!item.enabled) {
+            background = RippleDrawable(
+                ColorStateList.valueOf(ripple),
+                card(if (dark) 0xFF059669.toInt() else green, 15, outlined = false).apply {
+                    if (dark) setStroke(px(1), greenStroke)
+                },
+                null
+            )
+        }
     }
     body.addView(toggleBtn, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(50)).apply {
-        bottomMargin = px(10)
+        bottomMargin = px(9)
     })
 
-    // Uninstall button (crimson red for user apps, outlined for built-in TV apps)
+    // 4. Uninstall Button (A4 rose tinted destructive for user apps, native outlined for built-in apps)
     val uninstallLabel = if (item.system) "Uninstall for this TV" else "Uninstall for good"
     val uninstallBtn = button(uninstallLabel, description = "$uninstallLabel $title") {
         popup.dismiss()
@@ -180,22 +241,13 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
             }
         }
     }.apply {
-        textSize = 15f
         if (guidance.riskyUninstall) {
-            val dangerFill = if (dark) 0xFF991B1B.toInt() else 0xFFB02A37.toInt()
-            setTextColor(Color.WHITE)
+            val roseFill = if (dark) 0xFF281018.toInt() else 0xFFFFF1F2.toInt()
+            val roseInk = if (dark) 0xFFFB7185.toInt() else 0xFFE11D48.toInt()
+            setTextColor(roseInk)
             background = RippleDrawable(
                 ColorStateList.valueOf(ripple),
-                card(dangerFill, 14, outlined = false).apply {
-                    if (dark) setStroke(px(1), 0xFFDC2626.toInt())
-                },
-                null
-            )
-        } else {
-            setTextColor(ink)
-            background = RippleDrawable(
-                ColorStateList.valueOf(ripple),
-                card(if (dark) 0xFF131D2B.toInt() else field, 14, outlined = true),
+                card(roseFill, 15, outlined = false).apply { setStroke(px(1), rose) },
                 null
             )
         }
@@ -204,14 +256,14 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         bottomMargin = px(12)
     })
 
-    // Expandable "More app options" / "Hide app options" section
+    // 5. Collapsible "More app options" in A4's grouped hairline MORE TOOLS style
     var expanded = false
-    val moreCard = outlinedCard(if (dark) 0xFF111824.toInt() else field, radius = 16, stroke = 1).apply {
-        setPadding(px(4), px(6), px(4), px(6))
+    val moreCard = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 18, stroke = 1).apply {
+        setPadding(0, px(4), 0, px(4))
         visibility = View.GONE
     }
 
-    val dangerInk = if (dark) 0xFFF87171.toInt() else 0xFFC5221F.toInt()
+    val dangerInk = if (dark) 0xFFFB7185.toInt() else 0xFFE11D48.toInt()
     val extraActions = listOf<Triple<String, Boolean, () -> Unit>>(
         Triple("Open on TV", false) {
             popup.dismiss()
@@ -226,7 +278,7 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
             popup.dismiss()
             permissionsForPackage(id)
         },
-        Triple("Download", false) {
+        Triple("Export APK", false) {
             popup.dismiss()
             exportApks(id)
         },
@@ -258,43 +310,59 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         }
     )
 
-    for ((label, destructive, action) in extraActions) {
-        val optionView = text(label, 15, if (destructive) dangerInk else accent, bold = true).apply {
-            background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 10))
+    extraActions.forEachIndexed { idx, (label, destructive, action) ->
+        val itemRow = row().apply {
+            background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 12))
             minimumHeight = px(48)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(px(14), px(10), px(14), px(10))
+            setPadding(px(16), px(11), px(14), px(11))
             isClickable = true
             isFocusable = true
             contentDescription = label
+            addView(text(label, 14, if (destructive) dangerInk else ink, bold = true),
+                LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+            addView(text("›", 19, if (destructive) dangerInk else dim, bold = true))
             setOnClickListener { action() }
         }
-        moreCard.addView(optionView, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+        moreCard.addView(itemRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+        if (idx < extraActions.lastIndex) {
+            moreCard.addView(rule(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(1)).apply {
+                marginStart = px(16)
+                marginEnd = px(16)
+            })
+        }
     }
 
-    val gotItBtn = button("Got it", emphasis = true) { popup.dismiss() }.apply {
-        textSize = 15f
+    val toggleText = text("More app options", 14, accent, bold = true)
+    val toggleChevron = text("▾", 16, accent, bold = true)
+    val toggleMore = row().apply {
+        background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 12))
+        minimumHeight = px(44)
+        setPadding(px(4), px(6), px(4), px(6))
+        isClickable = true
+        isFocusable = true
+        contentDescription = "More app options"
+        addView(toggleText, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+        addView(toggleChevron)
     }
 
-    val toggleMore = textButton("More app options") {}.apply {
-        textSize = 15f
-        gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        setPadding(px(2), px(6), px(8), px(6))
-    }
+    val gotItBtn = button("Done") { popup.dismiss() }
+
     toggleMore.setOnClickListener {
         expanded = !expanded
-        toggleMore.text = if (expanded) "Hide app options" else "More app options"
+        toggleText.text = if (expanded) "Hide app options" else "More app options"
+        toggleChevron.text = if (expanded) "▴" else "▾"
+        toggleMore.contentDescription = toggleText.text
         moreCard.visibility = if (expanded) View.VISIBLE else View.GONE
         gotItBtn.visibility = if (expanded) View.GONE else View.VISIBLE
     }
 
-    body.addView(toggleMore, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply {
-        bottomMargin = px(8)
+    body.addView(toggleMore, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+        bottomMargin = px(6)
     })
     body.addView(moreCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
         bottomMargin = px(8)
     })
-    body.addView(gotItBtn, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(50)).apply {
+    body.addView(gotItBtn, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(48)).apply {
         topMargin = px(4)
     })
 
@@ -304,9 +372,7 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         isHorizontalScrollBarEnabled = false
         addView(body)
     }
-    sheet.addView(scroller, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
-        // Wrap content naturally while keeping sheet comfortably bounded on smaller screens
-    })
+    sheet.addView(scroller, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
 
     popup.setContentView(sheet)
     popup.show()
@@ -320,7 +386,6 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         setLayout(BridgeActivity.MATCH, BridgeActivity.WRAP)
     }
 
-    // Clamp tall expanded sheets so they scroll cleanly without touching the status bar
     sheet.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
         val params = scroller.layoutParams
         if (body.measuredHeight > maxBodyHeight && params.height != maxBodyHeight) {
