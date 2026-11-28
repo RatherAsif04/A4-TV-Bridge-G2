@@ -84,7 +84,7 @@ internal fun BridgeActivity.deviceInfo() {
             } else null
             tab.isSelected = active
         }
-        reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
+        reportViews.show(lastReading, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
     }
 
     for (tab in MonitorPage.entries) {

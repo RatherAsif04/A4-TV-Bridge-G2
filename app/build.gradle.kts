@@ -19,11 +19,39 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
     buildFeatures { buildConfig = true }
     testOptions.unitTests.isIncludeAndroidResources = true
     packaging {
-        jniLibs.useLegacyPackaging = true
-        resources.merges += setOf("META-INF/LICENSE", "META-INF/LICENSE.md", "META-INF/NOTICE", "META-INF/DEPENDENCIES")
+        jniLibs {
+            useLegacyPackaging = true
+            excludes += setOf("**/x86/**")
+        }
+        resources {
+            excludes += setOf(
+                "org/bouncycastle/pqc/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+                "org/bouncycastle/pkix/CertPathReviewerMessages*.properties",
+                "META-INF/androidx/**",
+                "META-INF/*.kotlin_module",
+                "META-INF/*.version",
+                "META-INF/com.android.tools/**",
+                "kotlin/**/*.kotlin_builtins",
+                "kotlin/**/*.kotlin_metadata",
+                "DebugProbesKt.bin"
+            )
+            merges += setOf("META-INF/LICENSE", "META-INF/LICENSE.md", "META-INF/NOTICE", "META-INF/DEPENDENCIES")
+        }
     }
 }
 

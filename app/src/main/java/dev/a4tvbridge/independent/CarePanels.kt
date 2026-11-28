@@ -920,7 +920,7 @@ internal fun BridgeActivity.cleanup() {
                 }
                 for (name in shown) {
                     val info = catalog.meta[name]
-                    val label = if (!info?.tv.isNullOrBlank()) "${info!!.tv}\n$name" else name
+                    val label = info?.tv?.takeIf { it.isNotBlank() }?.let { "$it\n$name" } ?: name
                     val isCurrent = name == currentName
                     results.addView(button(label, emphasis = isCurrent) {
                         preferences.edit().putString(choiceKey, name).apply()
