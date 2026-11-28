@@ -39,7 +39,7 @@ const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
 const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
 const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = '43ef05149bbf672c43ca4780143b983455e122f98d353b0926d1e5c720e3cc92';
+const ZIP_SHA256 = '50700b98021e314f64d39a65c79639f721cffc2c67bcfe707ae2a5e1bfd08369';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
@@ -71,8 +71,8 @@ const READINESS_CHECKS = [
   },
   {
     item: 'CleanYourTV Device Profiles',
-    detail: 'All 481 device debloat lists consolidated into one compact JSON asset',
-    value: '481 profiles',
+    detail: 'All 518 device debloat lists & tv.json metadata bundled as compact JSON assets',
+    value: '518 profiles',
     status: 'Verified'
   },
   {
@@ -83,14 +83,14 @@ const READINESS_CHECKS = [
   },
   {
     item: 'Clean Android-Only Archive',
-    detail: 'Self-contained Gradle project with executable gradlew and binary drawables intact',
-    value: '53 files · 749.8 KB',
+    detail: 'Self-contained Gradle project with docs, screenshots, executable gradlew, and drawables',
+    value: '62 files · 1.72 MB',
     status: 'Verified'
   },
   {
     item: 'AI Studio Sync File Footprint',
-    detail: 'Well under the ~460-file sync threshold so no Gradle or Kotlin files are truncated',
-    value: '72 workspace files',
+    detail: 'Well under the ~460-file sync threshold so no Gradle, Kotlin, or docs files are truncated',
+    value: '97 workspace files',
     status: 'Verified'
   }
 ];
@@ -399,12 +399,12 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                Fastest · 72 files
+                Fastest · 97 files
               </span>
             </div>
 
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Push directly from AI Studio into a brand-new public repository. Because all 481 device profiles are now consolidated into one JSON asset, every Gradle file, Kotlin source, drawable, and workflow file syncs without truncation.
+              Push directly from AI Studio into your public repository. Because all 518 device profiles are consolidated into compact JSON assets, every Gradle file, Kotlin source, screenshot, doc, and workflow file syncs without truncation.
             </p>
 
             <ol className="space-y-3 text-sm text-slate-700 dark:text-slate-300 pt-1">
@@ -461,7 +461,7 @@ export const PublishRepoView: React.FC = () => {
                 </h2>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                53 files · 749.8 KB
+                62 files · 1.72 MB
               </span>
             </div>
 

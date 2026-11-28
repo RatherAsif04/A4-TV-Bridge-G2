@@ -1,20 +1,47 @@
-# Security
+# Security Policy
 
-Use A4 TV Bridge with TVs you own or administer. ADB gives the controller Android shell access. Keep debugging on a trusted network, approve connections you recognize, and turn off debugging or revoke authorizations when you finish. Legacy network ADB can use an unencrypted transport. Wireless debugging with pairing uses TLS when the TV supports it.
+## Safe Usage Guidelines
 
-The app keeps its ADB identity and TV settings in app storage. Device search checks for ADB services after you ask it to find TVs. Commands, transfers, and screen captures travel directly between the controller and TV. The optional one-click installer contacts GitHub and checks each APK’s published SHA-256 digest and expected package ID before sending it to the TV.
+Use **A4 TV Bridge G2** only with TVs you own or administer. ADB grants Android shell access on the connected television:
 
-## Report a vulnerability
+- Keep Wireless Debugging / Network ADB enabled only on a **trusted local network**.
+- Approve only debugging prompts you recognize, and disable debugging or revoke authorizations when you finish.
+- Prefer **Android 11+ Wireless Debugging with TLS pairing** over legacy unencrypted port `5555` ADB whenever your TV supports it.
+- Watch for the **`ro.adb.secure=0` warning** inside **TV Care → Check my TV**: if your TV exposes unauthenticated ADB on the LAN, turn off Network ADB whenever you are not actively using it.
 
-If GitHub shows **Security → Report a vulnerability**, use it to send a private report. Otherwise, send the developer a private message on X. Include the app version, Android version, TV model, and steps to reproduce. Remove credentials, pairing codes, private network addresses, and screen contents from any logs. [Developer on X](https://x.com/ratherasif04)
+## Privacy & Local-Only Operation
 
-## Verify your download
+- A4 TV Bridge stores its ADB RSA keypair, saved TV list, and preferences strictly in Android app-private storage.
+- LAN discovery runs only when you ask to find TVs.
+- Remote commands, screen captures, file transfers, and live telemetry travel **directly between your controller and TV** with zero cloud relays or analytics.
+- **Clean Up TV Safety Guards** automatically block disabling boot-critical Android packages (`CORE_RE`), active Home launchers, HDMI/AV `TvInputService` packages, Wi-Fi setup owners (`setupwraith`), Settings, and active keyboards.
+- **1-Click App Install** and the **In-App GitHub Releases Updater** contact GitHub's official HTTPS API and verify both the published **SHA-256 checksum** and the **expected Android package ID** before installing or pushing any APK.
 
-The official APK uses Android package `dev.a4tvbridge.app`. Its signing certificate SHA-256 fingerprint is `8fd58d84f75ecd32dda172abfd66c3d97e5cc73b9cb92c2a6a50de83b4f264b3`.
+---
 
-Download the APK and checksum from the same release. Verify the file checksum and compare the printed signing fingerprint with the value above.
+## Verify Your Download
+
+Official releases use Android package ID **`dev.a4tvbridge.app`**.
+
+1. Download **`A4-TV-Bridge-1.4.1-release.apk`** and **`SHA256SUMS.txt`** from the same [GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest).
+2. Verify the file checksum and inspect the APK signing certificate:
 
 ```sh
-sha256sum -c A4-TV-Bridge-1.0.0.sha256
-apksigner verify --print-certs A4-TV-Bridge-1.0.0.apk
+sha256sum -c SHA256SUMS.txt --ignore-missing
+apksigner verify --print-certs A4-TV-Bridge-1.4.1-release.apk
 ```
+
+When upgrading an existing installation, Android also enforces that the new release APK is signed by the exact same signing key before allowing an in-place update.
+
+---
+
+## Reporting a Vulnerability
+
+If GitHub displays **Security → Report a vulnerability** on `RatherAsif04/A4-TV-Bridge-G2`, please use it to submit a private disclosure. Otherwise, send a private message to the developer on X: [@ratherasif04](https://x.com/ratherasif04).
+
+Please include:
+- A4 TV Bridge version and build number (found in **About**)
+- Controller Android version and TV model / Android TV version
+- Clear steps to reproduce
+
+Before sharing logs or screenshots, redact any pairing codes, private IP addresses, Wi-Fi SSIDs, or personal screen contents.
