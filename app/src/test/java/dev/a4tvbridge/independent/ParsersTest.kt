@@ -287,4 +287,14 @@ class ParsersTest {
         )
         assertEquals("ProjectivyLauncher-4.68-c468-github-release.apk", githubPreferred?.name)
     }
+
+    @Test fun providesFourOrderedAdbGuideStepsForEveryTvBrand() {
+        assertEquals(4, TvGuideBrand.entries.size)
+        for (brand in TvGuideBrand.entries) {
+            assertEquals(listOf(1, 2, 3, 4), brand.steps.map(AdbGuideStep::number))
+            assertTrue(brand.steps.first().pathChip?.isNotBlank() == true)
+            assertTrue(brand.steps[2].showToggle)
+            assertTrue(brand.steps.last().finalStep)
+        }
+    }
 }

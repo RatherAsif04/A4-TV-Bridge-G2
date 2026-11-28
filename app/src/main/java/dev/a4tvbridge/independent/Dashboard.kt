@@ -46,13 +46,18 @@ internal fun BridgeActivity.dashboard() {
         welcome.addView(ImageView(this).apply { setImageResource(R.drawable.a4_mark) },
             LinearLayout.LayoutParams(px(88), px(88)).apply { marginStart = px(8) })
         content.addView(welcome, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
-        content.addView(connectButton(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(54)))
+        content.addView(connectButton(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(54)).apply { bottomMargin = px(12) })
+        tiles(content, 1,
+            Tile("ADB Debugging Guide", Mark.INFO, "4-step setup for Google TV, Android TV, Fire TV & Xiaomi") {
+                show(Panel.ADB_GUIDE)
+            }
+        )
         content.addView(textButton("Other TV types") {
             choose("Other TV types", listOf(
                 "Android TV / Google TV" to { connectionPicker() },
                 "Fire TV with ADB debugging" to { connectDialog(pair = false) }
             ))
-        }, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { topMargin = px(12) })
+        }, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { topMargin = px(6) })
         return
     }
 

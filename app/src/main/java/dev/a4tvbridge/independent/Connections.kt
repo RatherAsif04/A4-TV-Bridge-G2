@@ -226,7 +226,8 @@ internal fun BridgeActivity.connectionPicker(after: Panel = Panel.DASHBOARD) {
                 }
             },
             Tile("Enter TV address", Mark.SHELL) { popup.dismiss(); connectDialog(pair = false, after = after) },
-            Tile("Pair with a code", Mark.REMOTE) { popup.dismiss(); connectDialog(pair = true, after = after) }
+            Tile("Pair with a code", Mark.REMOTE) { popup.dismiss(); connectDialog(pair = true, after = after) },
+            Tile("How to enable ADB debugging", Mark.INFO, "4-step TV setup guide") { popup.dismiss(); show(Panel.ADB_GUIDE) }
         )
         layout.addView(status)
         layout.addView(android.widget.ScrollView(this).apply {

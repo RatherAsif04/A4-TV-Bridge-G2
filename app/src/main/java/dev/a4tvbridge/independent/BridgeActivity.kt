@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 internal enum class Panel {
     DASHBOARD, LIBRARY, APPS, FILES, SHELL, CARE, CLEAN, CHECK, RESTORE, SPACE, SEND,
-    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME
+    REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME, ADB_GUIDE
 }
 internal val releaseRoot = "https://github.com/RatherAsif04/A4-TV-Bridge"
 
@@ -186,7 +186,7 @@ class BridgeActivity : Activity() {
                 setOnClickListener { action() }
             }, LinearLayout.LayoutParams(px(48), px(48)))
         }
-        val settingsPage = page == Panel.APPEARANCE
+        val settingsPage = page in setOf(Panel.APPEARANCE, Panel.ADB_GUIDE)
         val welcome = connection == null && page == Panel.DASHBOARD
         when {
             settingsPage -> header.addView(backButton("Back"))
@@ -267,7 +267,7 @@ class BridgeActivity : Activity() {
         if (connection != null && page in primaryPanels) {
             shell.addView(dock(page, ::controls), LinearLayout.LayoutParams(MATCH, px(84)).apply { bottomMargin = px(14) })
         }
-        if (page !in setOf(Panel.DASHBOARD, Panel.APPEARANCE) && connection == null) {
+        if (page !in setOf(Panel.DASHBOARD, Panel.APPEARANCE, Panel.ADB_GUIDE) && connection == null) {
             heading("Connect a TV")
             paragraph("Authorize a TV connection to use this tool.")
             addButton("Connect", emphasis = true) { connectionPicker() }
@@ -291,6 +291,7 @@ class BridgeActivity : Activity() {
             Panel.INSTALL -> installPage()
             Panel.APPEARANCE -> appearancePage()
             Panel.HOME -> homeScreenPage()
+            Panel.ADB_GUIDE -> adbGuidePage()
         }
     }
 
