@@ -488,7 +488,7 @@ class BridgeActivity : Activity() {
                 setSingleLine()
                 setText(initial)
                 typeface = monoTypeface
-                background = card(surfaceElevated, 14, outlined = true)
+                background = inputBackground(surfaceElevated, 14)
                 setPadding(px(14), px(12), px(14), px(12))
             }
             box.addView(edit, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -1085,7 +1085,7 @@ class BridgeActivity : Activity() {
                 setSingleLine()
                 setText(initial)
                 setSelection(text.length)
-                background = card(surfaceElevated, 14, outlined = true)
+                background = inputBackground(surfaceElevated, 14)
                 setPadding(px(14), px(13), px(14), px(13))
             }
             frame.addView(value, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(16) })
@@ -1121,13 +1121,22 @@ class BridgeActivity : Activity() {
         typeface = if (bold) uiBoldTypeface else uiRegularTypeface
         if (dark && size >= 22) letterSpacing = 0.01f
     }
+    internal fun inputBackground(fill: Int = surfaceElevated, radius: Int = 14) =
+        android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), card(fill, radius, outlined = false).apply {
+                setStroke(px(2), accent)
+            })
+            addState(intArrayOf(), card(fill, radius, outlined = true))
+        }
+
     internal fun input(label: String, themed: Boolean = false) =
         EditText(if (themed) android.view.ContextThemeWrapper(this, dialogTheme) else this).apply {
             hint = label
             typeface = uiRegularTypeface
             setHintTextColor(muted)
             setTextColor(ink)
-            backgroundTintList = ColorStateList.valueOf(accent)
+            backgroundTintList = null
+            background = inputBackground(surfaceElevated, 14)
         }
     private fun backButton(label: String) = textButton(label, getString(R.string.action_back)) { handleBackNavigation() }.apply {
         labelIcon(this, Mark.BACK)

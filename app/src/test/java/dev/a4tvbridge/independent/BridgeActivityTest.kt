@@ -178,6 +178,20 @@ class BridgeActivityTest {
         }
     }
 
+    @Test fun inputFieldsNeverApplyAccentBackgroundTint() {
+        val controller = Robolectric.buildActivity(BridgeActivity::class.java).setup()
+        controller.use {
+            val app = controller.get()
+            app.ask("Rename TV", "Android TV Box 1") {}
+            val dialog = ShadowDialog.getLatestDialog()
+            assertNotNull(dialog)
+            val edit = flatten(dialog.window!!.decorView).filterIsInstance<android.widget.EditText>().first()
+            assertEquals("Android TV Box 1", edit.text.toString())
+            assertEquals(null, edit.backgroundTintList)
+            assertEquals(app.ink, edit.currentTextColor)
+        }
+    }
+
     private fun flatten(node: View): Sequence<View> = sequence {
         yield(node)
         if (node is ViewGroup) {
