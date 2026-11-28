@@ -611,7 +611,7 @@ internal fun BridgeActivity.checkTv() {
             val activeHomeName = checkReport.activeHome?.substringBefore('/')?.let(::displayName) ?: "Default"
             val animVal = checkReport.animationScales.firstOrNull()?.ifBlank { "1.0" } ?: "1.0"
             val adbSafe = !checkReport.protection.adbInsecureWarning
-            val adbRaw = checkReport.protection.adbSecureRaw.ifBlank { if (adbSafe) "1" else "0" }
+            val adbRaw = checkReport.protection.adbSecureRaw?.takeIf { it.isNotBlank() } ?: if (adbSafe) "1" else "0"
 
             val statTiles = listOf(
                 StatTile(
