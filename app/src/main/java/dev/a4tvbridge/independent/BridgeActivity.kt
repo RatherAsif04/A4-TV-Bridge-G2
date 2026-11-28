@@ -301,7 +301,11 @@ class BridgeActivity : Activity() {
         }
         notice.visibility = if (activeOperation) View.VISIBLE else View.GONE
         shell.addView(notice, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
-        val scroll = ScrollView(this).apply { isFillViewport = true }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+        }
         content = column().apply { setPadding(0, px(6), 0, px(18)) }
         scroll.addView(content)
         screenBody = FrameLayout(this).apply {
@@ -373,7 +377,11 @@ class BridgeActivity : Activity() {
         form.addView(text(helper, 14, muted).apply { setPadding(0, px(8), 0, px(12)) })
         val dialogue = AlertDialog.Builder(this, dialogTheme)
             .setTitle(if (pair) "Pair with a TV" else "Connect to a TV")
-            .setView(ScrollView(this).apply { addView(form) })
+            .setView(ScrollView(this).apply {
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                addView(form)
+            })
             .setNegativeButton("Cancel", null).setPositiveButton(if (pair) "Pair and connect" else "Connect", null).create()
         styleDialog(dialogue)
         dialogue.show()

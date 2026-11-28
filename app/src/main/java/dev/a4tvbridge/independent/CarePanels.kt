@@ -898,7 +898,11 @@ internal fun BridgeActivity.cleanup() {
             area.addView(filter, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
 
             val results = column()
-            val scroller = ScrollView(this).apply { addView(results) }
+            val scroller = ScrollView(this).apply {
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                addView(results)
+            }
             val maxHeight = px((resources.configuration.screenHeightDp - 320).coerceAtLeast(180))
             area.addView(scroller, LinearLayout.LayoutParams(BridgeActivity.MATCH, maxHeight))
 

@@ -221,7 +221,11 @@ internal fun BridgeActivity.attachSheetBody(frame: LinearLayout, body: LinearLay
         View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
     )
     frame.addView(
-        android.widget.ScrollView(this).apply { addView(body) },
+        android.widget.ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            addView(body)
+        },
         LinearLayout.LayoutParams(BridgeActivity.MATCH, minOf(height, body.measuredHeight))
     )
 }
