@@ -295,7 +295,7 @@ internal fun BridgeActivity.dashboard() {
         setPadding(0, px(4), 0, px(4))
     }
     val updateHint = availableUpdate?.let { "Update ${it.tagName} available" }
-        ?: "Up to date · v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})"
+        ?: "Up to date · v${BuildConfig.VERSION_NAME}"
     val moreItems = listOf(
         Triple("File Manager", "Browse TV /sdcard storage & folders") { show(Panel.FILES) },
         Triple("Send Files to TV", "Push APKs, videos & media over Wi-Fi") { show(Panel.SEND) },

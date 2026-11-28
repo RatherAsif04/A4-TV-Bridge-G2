@@ -147,19 +147,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v1.4.4"
-          TITLE="A4 TV Bridge 1.4.4 (Modern Android Standards, AMOLED, Adaptive Icon & UX Polish)"
+          TITLE="A4 TV Bridge 1.4.4 (Modern Android Standards, Adaptive Icon & UX Polish)"
           if [ "${SIGNED_RELEASE:-false}" = "true" ]; then
             INSTALL_NOTE='> **Public install:** Download and install `A4-TV-Bridge-1.4.4-release.apk` directly on Android phones or tablets (signed with the official release keystore). Existing users can also update in one tap via **About → Check for updates**. Debug APKs remain available under the GitHub Actions workflow artifacts.'
           else
             INSTALL_NOTE='> **Install note:** Install `A4-TV-Bridge-1.4.4-debug.apk` directly on Android phones/tablets for testing, or add your signing secrets (`SIGNING_KEY_BASE64`, `SIGNING_KEY_ALIAS`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_PASSWORD`) in repository Settings to auto-sign the public release APK.'
           fi
           NOTES=$(cat <<EOF
-          ## A4 TV Bridge 1.4.4 (Build 15) — Modern Android Standards, AMOLED & UX Polish
+          ## A4 TV Bridge 1.4.4 — Modern Android Standards & UX Polish
           Authored and licensed under **RatherAsif04 (MIT License)**. Built automatically from source via GitHub Actions.
 
           ### What's New in 1.4.4
           - **Adaptive & Monochrome Launcher Icons + Bundled Fonts**: Added full Android adaptive/round/monochrome icons alongside bundled **Plus Jakarta Sans** UI typography and **JetBrains Mono** for IPs, package IDs, and ADB shell output.
-          - **AMOLED Black & Material You Dynamic Color**: Added a true-black **AMOLED Black** theme preset and an Android 12+ **Dynamic Color** toggle in **Appearance**.
+          - **Material You Dynamic Color**: Added an Android 12+ **Dynamic Color** accent toggle in **Appearance** alongside **System Default**, **Light**, and **Dark** themes.
           - **Android 15/16 Standards & Accessibility**: Enabled Predictive Back (\`OnBackInvokedCallback\`), guarded edge-to-edge system bar APIs on API 35+, enforced 48dp minimum touch targets across interactive controls, added D-pad focus rings, and added responsive tablet/TV container limits.
           - **Streamlined Navigation & Polish**: Added 1-tap **Saved TVs** on Welcome, **Rename TV** on Dashboard, direct **Apps** dock landing with quick pill strip, live **Installed / Update** badges in 1-Click Apps, upgraded **Free up space** storage overview card, quick command presets & history in **ADB Shell**, and semantic auto-dismissing notice banners.
 

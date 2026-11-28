@@ -360,7 +360,7 @@ class BridgeActivity : Activity() {
                 }, LinearLayout.LayoutParams(px(36), px(36)).apply { marginEnd = px(10) })
                 val brandCol = column().apply {
                     addView(text(getString(R.string.app_name), 18, bold = true))
-                    addView(text("v${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}", 11, muted).apply {
+                    addView(text("v${BuildConfig.VERSION_NAME}", 11, muted).apply {
                         typeface = monoTypeface
                         setPadding(0, px(1), 0, 0)
                     })

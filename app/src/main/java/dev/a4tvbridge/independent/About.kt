@@ -19,7 +19,7 @@ internal fun BridgeActivity.openAbout() {
         }, LinearLayout.LayoutParams(px(44), px(44)))
         val idCol = column().apply {
             addView(text("A4 TV Bridge", 17, bold = true))
-            addView(text("v${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}", 12, muted).apply {
+            addView(text("v${BuildConfig.VERSION_NAME}", 12, muted).apply {
                 typeface = monoTypeface
                 setPadding(0, px(2), 0, 0)
             })

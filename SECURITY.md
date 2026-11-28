@@ -40,7 +40,7 @@ When upgrading an existing installation, Android also enforces that the new rele
 If GitHub displays **Security → Report a vulnerability** on `RatherAsif04/A4-TV-Bridge`, please use it to submit a private disclosure. Otherwise, send a private message to the developer on X: [@ratherasif04](https://x.com/ratherasif04).
 
 Please include:
-- A4 TV Bridge version and build number (found in **About**)
+- A4 TV Bridge version (found in **About**)
 - Controller Android version and TV model / Android TV version
 - Clear steps to reproduce
 

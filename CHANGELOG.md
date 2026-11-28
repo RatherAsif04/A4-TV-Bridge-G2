@@ -4,7 +4,7 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
-## [v1.4.4] — Build 15
+## [v1.4.4]
 
 ### Added & Upgraded
 - **Adaptive Launcher Icon & Typography**: Added Android adaptive, round, and Android 13+ Material You monochrome launcher icons (`mipmap-anydpi-v26` + density fallbacks) alongside locally bundled **Plus Jakarta Sans** UI typography and **JetBrains Mono** for IPs, package IDs, and ADB shell output.
@@ -21,7 +21,7 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
-## [v1.4.3] — Build 14
+## [v1.4.3]
 
 ### Fixed & Improved
 - **Android Launch Crash Fix (`BridgeActivity.kt`)**: Moved `setContentView` before `WindowCompat.getInsetsController` and `WindowCompat.setDecorFitsSystemWindows` to fix a startup `NullPointerException` on `DecorView.getWindowInsetsController()`.
@@ -31,7 +31,7 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
-## [v1.4.2] — Build 13
+## [v1.4.2]
 
 ### Changed & Redesigned
 - **Unified High-Contrast Dark & Light Design System**: True-black obsidian dark mode (`#05070A` canvas, `#0D1219` elevated cards, `#1E293B` borders, `#38BDF8` cyan / `#10B981` emerald / `#F59E0B` amber accents), clean light mode (`#F1F5F9` / `#FFFFFF` / `#00587B`), and a floating 5-tab bottom dock (`Home`, `Apps`, raised circular cyan `Control`, `TV Care`, `Shell`).
@@ -43,7 +43,7 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
-## [v1.4.1] — Build 12
+## [v1.4.1]
 
 ### Added
 - **Automatic In-App GitHub Releases Updater (`AppUpdater.kt`)**:
@@ -62,13 +62,13 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
   - Added 6 high-DPI UI screenshots in `docs/screenshots/`, full feature guide (`docs/FEATURES.md`), updated `README.md`, `docs/USAGE.md`, `SECURITY.md`, and `CHANGELOG.md`.
 
 ### Changed
-- Bumped Android app version to **`1.4.1` (`versionCode = 12`)**.
+- Bumped Android app version to **`1.4.1`**.
 - Updated `.github/workflows/build-apk.yml` to build, test, sign/align, checksum (`SHA256SUMS.txt`), and publish `v1.4.1` releases automatically.
 - Updated `THIRD_PARTY_NOTICES.md` with CleanYourTV MIT attribution and snapshot reference.
 
 ---
 
-## [v1.4.0] — Build 11
+## [v1.4.0]
 
 ### Added
 - Full clean-room feature parity across **Home Screen Launchers & 1080p Theme Studio** (4 procedural on-device wallpapers), **Block Ads (Private DNS)**, **Device Info** (`Overview`, `CPU`, `Memory`, `Network` live 1s chart + per-app UID attribution + **Share Device Info**), **1-Click Verified App Installer**, **Split APK Sideload**, **File Manager & Send Files**, **Screen Mirror & Capture**, and **ADB Shell Terminal** — all authored cleanly under the MIT License.
