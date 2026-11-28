@@ -81,7 +81,7 @@
 
 - **Direct Local Control**: Commands, files, captures, and live telemetry travel directly between your phone and your TV over your local Wi-Fi/LAN — no cloud relay, no account login, and no analytics or telemetry SDKs.
 - **Built for Safety**: Every system-modifying workflow includes plain-English safety guidance, live ADB readback verification, boot-loop protection (`CORE_RE` + Home/HDMI/Wi-Fi setup guards), and one-tap undo in **Restore**.
-- **Modern Android Polish (v1.4.4)**: Bundled **Plus Jakarta Sans** &amp; **JetBrains Mono** typography, **Dark**, **AMOLED Black**, **Light**, and **Android 12+ Material You Dynamic Color** themes, adaptive &amp; monochrome launcher icons, Android 13+ Predictive Back, edge-to-edge insets, and responsive phone/tablet layouts.
+- **Modern Android Polish (v1.4.4)**: Bundled **Plus Jakarta Sans** &amp; **JetBrains Mono** typography, **System Default**, **Light**, **Dark**, and **Android 12+ Material You Dynamic Color** themes, adaptive &amp; monochrome launcher icons, Android 13+ Predictive Back, edge-to-edge insets, and responsive phone/tablet layouts.
 - **Independent Open Source**: Authored and maintained by [RatherAsif04](https://github.com/RatherAsif04) under the [MIT License](LICENSE), with community TV debloat profiles powered by [CleanYourTV](https://github.com/Gathin23/cleanyourtv) (MIT).
 
 ---
@@ -133,7 +133,7 @@
 
 ### 9. ADB Shell Terminal, Appearance &amp; Automatic In-App Updates
 - **Upgraded ADB Shell**: Run TV commands with `13sp` **JetBrains Mono** output, quick command preset chips, clickable recent command history, and exit code feedback.
-- **Appearance &amp; Adaptive Design**: Switch instantly between **System Default**, **Light**, **Dark**, and true-black **AMOLED Black**, toggle **Android 12+ Material You Dynamic Color**, and enjoy semantic auto-dismissing status banners and D-pad focus support.
+- **Appearance &amp; Adaptive Design**: Switch instantly between **System Default**, **Light**, and **Dark**, toggle **Android 12+ Material You Dynamic Color**, and enjoy semantic auto-dismissing status banners and D-pad focus support.
 - **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge` releases silently on startup (6-hour throttle) and on demand via **About → Check for updates**, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's installer in one tap.
 
 ---
@@ -159,7 +159,7 @@
 
 | Category | Support | Notes |
 | :--- | :---: | :--- |
-| **Android 8.0 – 11 (API 26–30)** | ✅ | Full feature set with Light, Dark, and AMOLED Black themes |
+| **Android 8.0 – 11 (API 26–30)** | ✅ | Full feature set with System, Light, and Dark themes |
 | **Android 12 – 16 (API 31–36+)** | ✅ | Adds Material You Dynamic Color, Android 13+ Predictive Back, and edge-to-edge insets |
 | **Tablets &amp; Foldables** | ✅ | Adaptive max-width centered layouts (`680dp` content cap) and responsive touch targets |
 
@@ -185,7 +185,7 @@
    - Open **TV Care → Check my TV** anytime (or run **Restart TV &amp; verify**) to confirm cleaned apps stayed disabled and your preferred launcher remained active.
 5. **Install Apps, Transfer Files &amp; Customize**:
    - Open **Apps** from the bottom dock to manage installed/built-in/running apps, launch **1-Click Install** (SmartTube, Jellyfin, Aerial Views, Projectivy), browse `/sdcard` in **File Manager**, or push files via **Send Files**.
-   - Open **Appearance** (gear icon) to switch between **System**, **Light**, **Dark**, **AMOLED Black**, and **Material You Dynamic Color**.
+   - Open **Appearance** (gear icon) to switch between **System**, **Light**, **Dark**, and **Material You Dynamic Color**.
 6. **Stay Up to Date**:
    - Open **About → Check for updates** (or tap the automatic update banner when a new GitHub Release is published) to download, verify, and install updates in one tap.
 

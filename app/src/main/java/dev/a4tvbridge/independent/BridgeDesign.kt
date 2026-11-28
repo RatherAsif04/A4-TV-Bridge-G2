@@ -144,7 +144,7 @@ internal fun BridgeActivity.dock(current: Panel, control: () -> Unit): View {
     }
     return FrameLayout(this).apply {
         clipChildren = false
-        val dockFill = if (amoled) 0xFF0A0D12.toInt() else if (dark) 0xFF0C1118.toInt() else Color.WHITE
+        val dockFill = if (dark) 0xFF0C1118.toInt() else Color.WHITE
         val surfaceView = View(this@dock).apply {
             background = card(dockFill, 24, outlined = true)
         }

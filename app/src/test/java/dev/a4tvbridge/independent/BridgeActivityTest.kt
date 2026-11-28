@@ -96,17 +96,19 @@ class BridgeActivityTest {
         }
     }
 
-    @Test fun supportsAmoledBlackModeAndDynamicVersion144() {
+    @Test fun supportsDarkLightSystemAppearanceAndVersion144() {
         assertEquals("1.4.4", BuildConfig.VERSION_NAME)
         assertEquals(15, BuildConfig.VERSION_CODE)
+        assertEquals(Appearance.DARK, Appearance.read("AMOLED"))
         val controller = Robolectric.buildActivity(BridgeActivity::class.java).setup()
         controller.use {
             val app = controller.get()
             flatten(app.window.decorView).first { it.contentDescription == "Appearance" }.performClick()
             val options = flatten(app.window.decorView).toList()
-            assertTrue(options.any { it.contentDescription == "AMOLED Black" })
-            options.first { it.contentDescription == "AMOLED Black" }.performClick()
-            assertEquals(0xFF000000.toInt(), app.surface)
+            assertTrue(options.none { it.contentDescription == "AMOLED Black" })
+            assertTrue(options.any { it.contentDescription == "Dark" })
+            options.first { it.contentDescription == "Dark" }.performClick()
+            assertEquals(0xFF05070A.toInt(), app.surface)
         }
     }
 

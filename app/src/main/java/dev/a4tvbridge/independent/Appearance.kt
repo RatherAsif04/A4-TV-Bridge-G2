@@ -15,16 +15,14 @@ import android.widget.LinearLayout
 internal enum class Appearance(val label: String, val summary: String) {
     SYSTEM("System Default", "Follow Android’s light or dark setting."),
     LIGHT("Light", "Crisp white surfaces with cool slate borders."),
-    DARK("Dark", "Deep slate-black with ocean-blue controls."),
-    AMOLED("AMOLED Black", "Pure #000000 black surfaces for OLED displays.");
+    DARK("Dark", "Deep slate-black with ocean-blue controls.");
 
-    fun usesDark(systemDark: Boolean) = this == DARK || this == AMOLED || (this == SYSTEM && systemDark)
+    fun usesDark(systemDark: Boolean) = this == DARK || (this == SYSTEM && systemDark)
 
     companion object {
         fun read(value: String?): Appearance = when (value?.uppercase(java.util.Locale.ROOT)) {
             "LIGHT", "WHITE", "GLACIER", "SANDSTONE", "ORIGINAL" -> LIGHT
-            "AMOLED" -> AMOLED
-            "DARK", "MIDNIGHT" -> DARK
+            "DARK", "MIDNIGHT", "AMOLED" -> DARK
             else -> SYSTEM
         }
     }
@@ -43,11 +41,10 @@ internal fun Context.systemUsesDark() =
     resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
 internal fun BridgeActivity.appearancePage() {
-    pageHeader("Appearance", "Choose theme mode, OLED black, or Material You accent")
+    pageHeader("Appearance", "Choose theme mode or Material You accent")
     val selected = appearanceChoice()
     for (choice in Appearance.entries) {
         val sampleDark = choice.usesDark(systemUsesDark())
-        val isAmoled = choice == Appearance.AMOLED
         val active = selected == choice
         val tile = row().apply {
             minimumHeight = px(70)
@@ -65,13 +62,9 @@ internal fun BridgeActivity.appearancePage() {
                 }
             }
         }
-        val previewBg = when {
-            isAmoled -> 0xFF000000.toInt()
-            sampleDark -> 0xFF142835.toInt()
-            else -> 0xFFDDF3FC.toInt()
-        }
+        val previewBg = if (sampleDark) 0xFF142835.toInt() else 0xFFDDF3FC.toInt()
         val preview = View(this).apply {
-            background = card(previewBg, 32, outlined = isAmoled)
+            background = card(previewBg, 32, outlined = false)
         }
         val swatch = object : View(this) {
             private val brush = Paint(Paint.ANTI_ALIAS_FLAG).apply {

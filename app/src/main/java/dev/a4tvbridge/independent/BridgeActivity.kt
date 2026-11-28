@@ -94,8 +94,6 @@ class BridgeActivity : Activity() {
 
     internal var dark = false
         private set
-    internal var amoled = false
-        private set
     private var useDynamicAccent = false
 
     private fun dynamicAccentOr(fallback: Int): Int {
@@ -117,10 +115,10 @@ class BridgeActivity : Activity() {
     internal val accentBright get() = dynamicAccentOr(if (dark) 0xFF38BDF8.toInt() else 0xFF0284C7.toInt())
     internal val accentStrong get() = dynamicAccentStrongOr(if (dark) 0xFF0077A8.toInt() else 0xFF00587B.toInt())
     internal val accentPill get() = dynamicAccentStrongOr(0xFF00587B.toInt())
-    internal val field get() = if (amoled) 0xFF0A0D12.toInt() else if (dark) 0xFF0D1219.toInt() else 0xFFFFFFFF.toInt()
-    internal val surface get() = if (amoled) 0xFF000000.toInt() else if (dark) 0xFF05070A.toInt() else 0xFFF1F5F9.toInt()
-    internal val surfaceElevated get() = if (amoled) 0xFF111822.toInt() else if (dark) 0xFF131D2B.toInt() else 0xFFF8FAFC.toInt()
-    internal val surfaceSubtle get() = if (amoled) 0xFF06080C.toInt() else if (dark) 0xFF0A0F16.toInt() else surface
+    internal val field get() = if (dark) 0xFF0D1219.toInt() else 0xFFFFFFFF.toInt()
+    internal val surface get() = if (dark) 0xFF05070A.toInt() else 0xFFF1F5F9.toInt()
+    internal val surfaceElevated get() = if (dark) 0xFF131D2B.toInt() else 0xFFF8FAFC.toInt()
+    internal val surfaceSubtle get() = if (dark) 0xFF0A0F16.toInt() else surface
     internal val edge get() = if (dark) 0xFF1E293B.toInt() else 0xFFCBD5E1.toInt()
     internal val tint get() = if (dark) 0xFF091D2C.toInt() else 0xFFE0F2FE.toInt()
     internal val onAccent get() = Color.WHITE
@@ -280,7 +278,6 @@ class BridgeActivity : Activity() {
         polling?.cancel()
         polling = null
         val choice = appearanceChoice()
-        amoled = choice == Appearance.AMOLED
         dark = choice.usesDark(systemUsesDark())
         useDynamicAccent = dynamicColorEnabled()
 
