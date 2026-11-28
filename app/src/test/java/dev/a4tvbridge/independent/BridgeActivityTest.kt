@@ -114,7 +114,11 @@ class BridgeActivityTest {
         val controller = Robolectric.buildActivity(BridgeActivity::class.java)
         controller.use {
             val app = controller.get()
-            TvDirectory(app).remember(TvIdentity("Living Room TV", "14", "serial-123"), TvAddress("192.168.1.50", 5555))
+            app.getSharedPreferences("bridge", android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putStringSet("tv-addresses", setOf("192.168.1.50:5555"))
+                .putString("tv-model-192.168.1.50:5555", "Living Room TV")
+                .commit()
             controller.setup()
             val texts = flatten(app.window.decorView).filterIsInstance<TextView>().map { it.text.toString() }
             assertTrue("Living Room TV" in texts)
