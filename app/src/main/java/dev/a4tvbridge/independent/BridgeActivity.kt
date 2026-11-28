@@ -59,19 +59,25 @@ class BridgeActivity : Activity() {
     private lateinit var notice: TextView
     internal var dark = false
         private set
-    internal val ink get() = if (dark) 0xFFEFF6FF.toInt() else 0xFF182238.toInt()
-    internal val muted get() = if (dark) 0xFFADB8C5.toInt() else 0xFF465469.toInt()
-    internal val accent get() = if (dark) 0xFFB0DEFF.toInt() else 0xFF00587B.toInt()
-    internal val field get() = if (dark) 0xFF111418.toInt() else 0xFFF8F9FB.toInt()
-    internal val surface get() = if (dark) Color.BLACK else Color.WHITE
-    internal val edge get() = if (dark) 0xFF303840.toInt() else 0xFFDADDDF.toInt()
-    internal val tint get() = if (dark) 0xFF142835.toInt() else 0xFFDDF3FC.toInt()
-    internal val onAccent get() = if (dark) 0xFF0A1D2D.toInt() else Color.WHITE
-    internal val green get() = if (dark) 0xFFA5ECC8.toInt() else 0xFF15573E.toInt()
-    internal val purple get() = if (dark) 0xFFC5B4FF.toInt() else 0xFF5C45A0.toInt()
-    internal val orange get() = if (dark) 0xFFF7BD8C.toInt() else 0xFF9A4E13.toInt()
-    internal val ripple get() = if (dark) 0x33B0DEFF else 0x2200587B
-    internal val corner get() = if (dark) 20 else 13
+    internal val ink get() = if (dark) 0xFFF8FAFC.toInt() else 0xFF0F172A.toInt()
+    internal val muted get() = if (dark) 0xFF94A3B8.toInt() else 0xFF475569.toInt()
+    internal val dim get() = 0xFF64748B.toInt()
+    internal val accent get() = if (dark) 0xFF38BDF8.toInt() else 0xFF00587B.toInt()
+    internal val accentStrong get() = if (dark) 0xFF0077A8.toInt() else 0xFF00587B.toInt()
+    internal val accentPill get() = if (dark) 0xFF00587B.toInt() else 0xFF00587B.toInt()
+    internal val field get() = if (dark) 0xFF0D1219.toInt() else 0xFFFFFFFF.toInt()
+    internal val surface get() = if (dark) 0xFF05070A.toInt() else 0xFFF1F5F9.toInt()
+    internal val edge get() = if (dark) 0xFF1E293B.toInt() else 0xFFCBD5E1.toInt()
+    internal val tint get() = if (dark) 0xFF091D2C.toInt() else 0xFFE0F2FE.toInt()
+    internal val onAccent get() = Color.WHITE
+    internal val green get() = if (dark) 0xFF34D399.toInt() else 0xFF059669.toInt()
+    internal val greenBg get() = if (dark) 0xFF062118.toInt() else 0xFFECFDF5.toInt()
+    internal val greenStroke get() = 0xFF10B981.toInt()
+    internal val purple get() = if (dark) 0xFFA78BFA.toInt() else 0xFF6D28D9.toInt()
+    internal val orange get() = if (dark) 0xFFF59E0B.toInt() else 0xFFD97706.toInt()
+    internal val rose get() = 0xFFF43F5E.toInt()
+    internal val ripple get() = if (dark) 0x3338BDF8 else 0x2200587B
+    internal val corner get() = 18
     internal val dialogTheme get() = if (dark) R.style.BridgeDialogDark else R.style.BridgeDialogLight
     private var onDocuments: ((List<Uri>) -> Unit)? = null
     private var pendingSave: File? = null
@@ -161,8 +167,8 @@ class BridgeActivity : Activity() {
         ViewCompat.setOnApplyWindowInsetsListener(shell) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val sides = px(if (resources.configuration.screenWidthDp < 360) 18 else 30)
-            view.setPadding(bars.left + sides, bars.top + px(16), bars.right + sides, maxOf(bars.bottom, keyboard.bottom))
+            val sides = px(if (resources.configuration.screenWidthDp < 360) 14 else 18)
+            view.setPadding(bars.left + sides, bars.top + px(12), bars.right + sides, maxOf(bars.bottom, keyboard.bottom))
             insets
         }
         WindowCompat.getInsetsController(window, shell).apply {
@@ -200,8 +206,31 @@ class BridgeActivity : Activity() {
             }
             page in primaryPanels -> {
                 header.addView(ImageView(this).apply { setImageResource(R.drawable.a4_mark) },
-                    LinearLayout.LayoutParams(px(34), px(34)).apply { marginEnd = px(8) })
-                header.addView(text("A4 TV Bridge", 16, bold = true), LinearLayout.LayoutParams(0, WRAP, 1f))
+                    LinearLayout.LayoutParams(px(36), px(36)).apply { marginEnd = px(10) })
+                val brandCol = column().apply {
+                    addView(text("A4 TV Bridge", 18, bold = true))
+                    addView(text("v${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}", 11, muted).apply {
+                        typeface = Typeface.MONOSPACE
+                        setPadding(0, px(1), 0, 0)
+                    })
+                }
+                header.addView(brandCol, LinearLayout.LayoutParams(0, WRAP, 1f))
+                if (connection != null) {
+                    val chip = row().apply {
+                        background = card(greenBg, 20, outlined = false).apply { setStroke(px(1), greenStroke) }
+                        setPadding(px(11), px(6), px(12), px(6))
+                        val dot = View(this@BridgeActivity).apply { background = rounded(greenStroke, 8) }
+                        addView(dot, LinearLayout.LayoutParams(px(7), px(7)).apply { marginEnd = px(6) })
+                        addView(text("Connected", 12, if (dark) 0xFF6EE7B7.toInt() else green, bold = true))
+                        isClickable = true
+                        isFocusable = true
+                        contentDescription = "Connected TV options"
+                        setOnClickListener {
+                            choose("Change TV", listOf("Choose another TV" to { connectionPicker() }, "Disconnect" to { disconnect() }))
+                        }
+                    }
+                    header.addView(chip, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = px(4) })
+                }
                 addHeaderAction(Mark.SETTINGS, "Appearance") { show(Panel.APPEARANCE) }
                 addHeaderAction(Mark.INFO, "About A4 TV Bridge", ::openAbout)
             }
@@ -675,16 +704,24 @@ class BridgeActivity : Activity() {
         contentDescription = description
         isAllCaps = false
         textSize = 15f
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         stateListAnimator = null
         includeFontPadding = false
         minHeight = px(48)
         minimumHeight = px(48)
         minimumWidth = 0
         setTextColor(if (emphasis) onAccent else ink)
+        val surfaceBg = if (emphasis) {
+            card(accentStrong, 15, outlined = false).apply {
+                if (dark) setStroke(px(1), accent)
+            }
+        } else {
+            card(if (dark) 0xFF131D2B.toInt() else field, 15, outlined = true)
+        }
         background = android.graphics.drawable.RippleDrawable(
-            ColorStateList.valueOf(ripple), card(if (emphasis) accent else field, corner, !emphasis), null,
+            ColorStateList.valueOf(ripple), surfaceBg, null
         )
-        setPadding(px(14), px(6), px(14), px(6))
+        setPadding(px(14), px(8), px(14), px(8))
         setOnClickListener { action() }
     }
     internal fun addButton(label: String, emphasis: Boolean = false, action: () -> Unit) {

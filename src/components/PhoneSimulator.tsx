@@ -125,37 +125,37 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
   const isBroken = build === 'broken';
   const isDark = theme === 'dark' || theme === 'system';
 
-  // Exact A4 TV Bridge color tokens from BridgeActivity.kt
+  // Exact A4 TV Bridge v1.4.1 color tokens from BridgeActivity.kt
   const pal = useMemo(
     () =>
       isDark
         ? {
-            surface: '#000000',
-            field: '#111418',
-            ink: '#EFF6FF',
-            muted: '#ADB8C5',
-            accent: '#B0DEFF',
-            onAccent: '#0A1D2D',
-            edge: '#303840',
-            tint: '#142835',
-            green: '#A5ECC8',
-            purple: '#C5B4FF',
-            orange: '#F7BD8C',
-            corner: 20
+            surface: '#05070A',
+            field: '#0D1219',
+            ink: '#F8FAFC',
+            muted: '#94A3B8',
+            accent: '#38BDF8',
+            onAccent: '#FFFFFF',
+            edge: '#1E293B',
+            tint: '#091D2C',
+            green: '#34D399',
+            purple: '#A78BFA',
+            orange: '#F59E0B',
+            corner: 18
           }
         : {
-            surface: '#FFFFFF',
-            field: '#F8F9FB',
-            ink: '#182238',
-            muted: '#465469',
+            surface: '#F1F5F9',
+            field: '#FFFFFF',
+            ink: '#0F172A',
+            muted: '#475569',
             accent: '#00587B',
             onAccent: '#FFFFFF',
-            edge: '#DADDDF',
-            tint: '#DDF3FC',
-            green: '#15573E',
-            purple: '#5C45A0',
-            orange: '#9A4E13',
-            corner: 13
+            edge: '#CBD5E1',
+            tint: '#E0F2FE',
+            green: '#059669',
+            purple: '#6D28D9',
+            orange: '#D97706',
+            corner: 18
           },
     [isDark]
   );

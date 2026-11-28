@@ -1,6 +1,6 @@
-# A4 TV Bridge G2 — Complete Feature Reference (v1.4.1)
+# A4 TV Bridge G2 — Complete Feature Reference (v1.4.2)
 
-This document describes every screen, safety mechanism, and technical capability included in **A4 TV Bridge G2 (`v1.4.1`, Build 12)**.
+This document describes every screen, safety mechanism, and technical capability included in **A4 TV Bridge G2 (`v1.4.2`, Build 13)**.
 
 ---
 

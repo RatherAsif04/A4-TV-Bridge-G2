@@ -23,12 +23,12 @@ Use **A4 TV Bridge G2** only with TVs you own or administer. ADB grants Android 
 
 Official releases use Android package ID **`dev.a4tvbridge.app`**.
 
-1. Download **`A4-TV-Bridge-1.4.1-release.apk`** and **`SHA256SUMS.txt`** from the same [GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest).
+1. Download **`A4-TV-Bridge-1.4.2-release.apk`** and **`SHA256SUMS.txt`** from the same [GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest).
 2. Verify the file checksum and inspect the APK signing certificate:
 
 ```sh
 sha256sum -c SHA256SUMS.txt --ignore-missing
-apksigner verify --print-certs A4-TV-Bridge-1.4.1-release.apk
+apksigner verify --print-certs A4-TV-Bridge-1.4.2-release.apk
 ```
 
 When upgrading an existing installation, Android also enforces that the new release APK is signed by the exact same signing key before allowing an in-place update.

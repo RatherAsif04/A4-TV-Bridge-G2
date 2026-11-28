@@ -7,16 +7,17 @@
     <style name="BridgeDialogLight" parent="android:style/Theme.Material.Light.Dialog.Alert">
         <item name="android:colorAccent">#00587B</item>
         <item name="android:colorControlActivated">#00587B</item>
-        <item name="android:textColorPrimary">#182238</item>
-        <item name="android:textColorSecondary">#465469</item>
-        <item name="android:textColorAlertDialogListItem">#182238</item>
+        <item name="android:colorBackground">#FFFFFF</item>
+        <item name="android:textColorPrimary">#0F172A</item>
+        <item name="android:textColorSecondary">#475569</item>
+        <item name="android:textColorAlertDialogListItem">#0F172A</item>
     </style>
     <style name="BridgeDialogDark" parent="android:style/Theme.Material.Dialog.Alert">
-        <item name="android:colorAccent">#B0DEFF</item>
-        <item name="android:colorControlActivated">#B0DEFF</item>
-        <item name="android:colorBackground">#111418</item>
-        <item name="android:textColorPrimary">#EFF6FF</item>
-        <item name="android:textColorSecondary">#ADB8C5</item>
-        <item name="android:textColorAlertDialogListItem">#EFF6FF</item>
+        <item name="android:colorAccent">#38BDF8</item>
+        <item name="android:colorControlActivated">#38BDF8</item>
+        <item name="android:colorBackground">#0D1219</item>
+        <item name="android:textColorPrimary">#F8FAFC</item>
+        <item name="android:textColorSecondary">#94A3B8</item>
+        <item name="android:textColorAlertDialogListItem">#F8FAFC</item>
     </style>
 </resources>

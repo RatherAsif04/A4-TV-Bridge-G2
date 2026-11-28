@@ -125,8 +125,8 @@ class ParsersTest {
         assertEquals("ST", AppBrandRegistry.resolve("org.smarttube.stable").monogram)
         assertEquals("JF", AppBrandRegistry.resolve("org.jellyfin.androidtv").monogram)
         assertEquals("YT", AppBrandRegistry.resolve("com.google.android.youtube.tv").monogram)
-        val json = themeConfigJson(HomeThemePreset.AURORA)
-        assertTrue(json.contains("\"aurora\""))
+        val json = themeConfigJson(HomeThemePreset.NORDIC_SLATE)
+        assertTrue(json.contains("\"nordic-slate\""))
         assertTrue(json.contains("RatherAsif04"))
     }
 

@@ -1,4 +1,4 @@
-# How to Use A4 TV Bridge G2 (v1.4.1)
+# How to Use A4 TV Bridge G2 (v1.4.2)
 
 This step-by-step guide walks through installing **A4 TV Bridge G2**, connecting your TV, running CleanYourTV automatic debloating, verifying changes after a reboot, sideloading apps, transferring files, and updating the app directly from GitHub Releases.
 
@@ -6,7 +6,7 @@ This step-by-step guide walks through installing **A4 TV Bridge G2**, connecting
 
 ## 1. Install the Controller App
 
-1. Download **`A4-TV-Bridge-1.4.1-release.apk`** from the [Latest GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest) on the Android phone or tablet (Android 8.0+) you will use as your TV controller.
+1. Download **`A4-TV-Bridge-1.4.2-release.apk`** from the [Latest GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest) on the Android phone or tablet (Android 8.0+) you will use as your TV controller.
 2. Open the downloaded APK. If Android prompts you, grant your browser or file manager permission to install unknown apps (you can turn this back off afterward).
 3. *(Recommended)* Verify the APK checksum and signature before installing — see [Verify your download](../SECURITY.md#verify-your-download).
 

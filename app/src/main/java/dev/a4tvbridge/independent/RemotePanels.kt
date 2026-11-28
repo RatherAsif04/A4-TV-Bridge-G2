@@ -1,11 +1,15 @@
 package dev.a4tvbridge.independent
 
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -15,8 +19,8 @@ import android.widget.LinearLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.math.roundToInt
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 internal fun BridgeActivity.pinnedPackages(tv: TvConnection): Set<String> {
     val key = "pinned-${tv.serial}"
@@ -36,60 +40,177 @@ internal fun BridgeActivity.setPinned(tv: TvConnection, id: String, enabled: Boo
 internal fun BridgeActivity.remote() {
     val tv = connection ?: return
     var usingTouch = false
-    val header = row().apply { gravity = Gravity.CENTER }
-    fun toolLayout(index: Int) = LinearLayout.LayoutParams(px(48), px(48)).apply {
-        if (index > 0) marginStart = px(9)
-    }
-    header.addView(remoteIcon(Mark.KEYBOARD, "Keyboard", round = true) {
-        ask("Send text to TV") { raw ->
-            val cleaned = raw.trim()
-            if (cleaned.isNotEmpty()) sendInput { sendText(cleaned) }
-        }
-    }, toolLayout(0))
-    header.addView(remoteIcon(Mark.CAMERA, "Screenshot", round = true, action = ::saveScreenshot), toolLayout(1))
-    header.addView(remoteIcon(Mark.APPS, "Apps", round = true) { show(Panel.APPS) }, toolLayout(2))
-    content.addView(header, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
-        bottomMargin = px(9)
+
+    // Title & subtitle (matches 02-control-remote.png)
+    content.addView(text("Remote Control", 24, bold = true).apply { setPadding(0, px(2), 0, px(2)) })
+    content.addView(text("${tvTitle() ?: tv.model} · Non-blocking key queue", 12, muted).apply {
+        setPadding(0, 0, 0, px(12))
     })
+
+    // Full-width segmented D-Pad / Touchpad bar
     val modes = row().apply {
         setPadding(px(4), px(4), px(4), px(4))
-        background = card(tint, 28, false)
+        background = card(field, 15, outlined = true)
     }
     val touchSurface = RemotePad(this) { code -> sendInput { key(code) } }
+    fun styleMode(btn: android.widget.Button, active: Boolean) {
+        btn.isSelected = active
+        btn.background = if (active) {
+            card(accentPill, 11, outlined = false).apply {
+                if (dark) setStroke(px(1), accent)
+            }
+        } else null
+        btn.setTextColor(if (active) Color.WHITE else dim)
+        btn.typeface = Typeface.create("sans-serif-medium", if (active) Typeface.BOLD else Typeface.NORMAL)
+    }
     fun mode(label: String, touch: Boolean) = textButton(label) {
         usingTouch = touch
         touchSurface.touchMode = touch
         for (n in 0..1) {
             val item = modes.getChildAt(n) as android.widget.Button
-            val active = (n == 1) == usingTouch
-            item.isSelected = active
-            item.background = if (active) card(surface, 24, false) else null
-            item.setTextColor(if (active) accent else muted)
+            styleMode(item, (n == 1) == usingTouch)
         }
+    }.apply {
+        textSize = 14f
+        minHeight = 0
+        minimumHeight = 0
     }
-    modes.addView(mode("D-pad", false).apply {
-        isSelected = true
-        background = card(surface, 24, false)
-        setTextColor(accent)
-    }, LinearLayout.LayoutParams(0, px(40), 1f))
-    modes.addView(mode("Touchpad", true).apply { setTextColor(muted) }, LinearLayout.LayoutParams(0, px(40), 1f))
-    content.addView(modes, LinearLayout.LayoutParams(px(220), px(48)).apply {
-        gravity = android.view.Gravity.CENTER_HORIZONTAL
-        bottomMargin = px(22)
+    modes.addView(mode("D-Pad", false).also { styleMode(it, true) }, LinearLayout.LayoutParams(0, px(38), 1f))
+    modes.addView(mode("Touchpad", true).also { styleMode(it, false) }, LinearLayout.LayoutParams(0, px(38), 1f))
+    content.addView(modes, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(46)).apply { bottomMargin = px(12) })
+
+    // 4-item Capture & Mirror Action Bar (Mirror, Screenshot, Record, Power)
+    val captureBar = row()
+    val captureItems = listOf(
+        Triple("Mirror", 0xFF38BDF8.toInt()) { show(Panel.MIRROR) },
+        Triple("Screenshot", green) { saveScreenshot() },
+        Triple("Record", rose) { saveRecording() },
+        Triple("Power", orange) { sendInput { key(26) } }
+    )
+    captureItems.forEachIndexed { idx, (lbl, dotColor, action) ->
+        val chip = column().apply {
+            gravity = Gravity.CENTER
+            background = RippleDrawable(ColorStateList.valueOf(ripple), card(field, 14, outlined = true), null)
+            setPadding(px(6), px(10), px(6), px(10))
+            val dot = View(this@remote).apply { background = rounded(dotColor, 8) }
+            addView(dot, LinearLayout.LayoutParams(px(8), px(8)).apply { bottomMargin = px(6) })
+            addView(text(lbl, 12, ink, bold = true).apply { isSingleLine = true })
+            isClickable = true
+            isFocusable = true
+            contentDescription = lbl
+            setOnClickListener { action() }
+        }
+        captureBar.addView(chip, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
+            if (idx > 0) marginStart = px(8)
+        })
+    }
+    content.addView(captureBar, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
+
+    // Sculpted Circular D-Pad / Touchpad
+    val padHeight = px((resources.configuration.screenWidthDp - 44).coerceIn(250, 320))
+    content.addView(touchSurface, LinearLayout.LayoutParams(BridgeActivity.MATCH, padHeight).apply { bottomMargin = px(14) })
+
+    // Nav Row: Back | Home | Menu
+    val navRow = row()
+    val navs = listOf(Triple("Back", "Back on TV", 4), Triple("Home", "Home on TV", 3), Triple("Menu", "TV menu", 82))
+    navs.forEachIndexed { idx, (lbl, desc, code) ->
+        val navBtn = button(lbl, desc) { sendInput { key(code) } }.apply {
+            background = RippleDrawable(ColorStateList.valueOf(ripple), card(field, 15, outlined = true), null)
+            setTextColor(ink)
+        }
+        navRow.addView(navBtn, LinearLayout.LayoutParams(0, px(50), 1f).apply {
+            if (idx > 0) marginStart = px(8)
+        })
+    }
+    content.addView(navRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
+    // Volume & Media Split Cards (matches 02-control-remote.png)
+    val controlPair = row()
+    fun splitControlCard(title: String, keys: List<Triple<String, String, Pair<Int, Boolean>>>): LinearLayout =
+        outlinedCard(field, radius = 16, stroke = 1).apply {
+            setPadding(px(10), px(10), px(10), px(10))
+            addView(text(title, 11, dim, bold = true).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = 0.08f
+                setPadding(0, 0, 0, px(8))
+            }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+            val btnRow = row()
+            keys.forEachIndexed { i, (lbl, desc, meta) ->
+                val (code, hi) = meta
+                val keyBg = if (hi) {
+                    card(if (dark) 0xFF082F49.toInt() else accentPill, 12, outlined = false).apply {
+                        setStroke(px(1), accent)
+                    }
+                } else {
+                    card(if (dark) 0xFF131D2B.toInt() else surface, 12, outlined = true)
+                }
+                val b = button(lbl, desc) { sendInput { key(code) } }.apply {
+                    background = RippleDrawable(ColorStateList.valueOf(ripple), keyBg, null)
+                    setTextColor(if (hi) Color.WHITE else ink)
+                    textSize = if (lbl.length == 1) 20f else 12f
+                    setPadding(px(2), 0, px(2), 0)
+                    minHeight = px(54)
+                    minimumHeight = px(54)
+                }
+                btnRow.addView(b, LinearLayout.LayoutParams(0, px(54), 1f).apply {
+                    if (i > 0) marginStart = px(6)
+                })
+            }
+            addView(btnRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+        }
+
+    val volCard = splitControlCard("VOLUME", listOf(
+        Triple("−", "Volume down", 25 to false),
+        Triple("Mute", "Mute", 164 to false),
+        Triple("+", "Volume up", 24 to false)
+    ))
+    val mediaCard = splitControlCard("MEDIA", listOf(
+        Triple("◄◄", "Previous", 88 to false),
+        Triple("▶ II", "Play or pause", 85 to true),
+        Triple("►►", "Next", 87 to false)
+    ))
+    controlPair.addView(volCard, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+    controlPair.addView(mediaCard, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(10) })
+    content.addView(controlPair, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
+    // Inline SEND TEXT TO TV KEYBOARD Card (matches 02-control-remote.png)
+    val textCard = outlinedCard(field, radius = 16, stroke = 1)
+    textCard.addView(text("SEND TEXT TO TV KEYBOARD", 11, dim, bold = true).apply {
+        letterSpacing = 0.08f
+        setPadding(0, 0, 0, px(8))
     })
-    content.addView(touchSurface, LinearLayout.LayoutParams(BridgeActivity.MATCH,
-        px((resources.configuration.screenHeightDp * .43f).toInt().coerceIn(245, 425))).apply { bottomMargin = px(18) })
-    remoteKeyRow(content, listOf(RemoteKey(Mark.BACK, "Back on TV", 4, "Back"),
-        RemoteKey(Mark.HOME, "Home on TV", 3, "Home"), RemoteKey(Mark.MENU, "TV menu", 82, "Menu")))
-    remoteKeyRow(content, listOf(RemoteKey(Mark.MINUS, "Volume down", 25), RemoteKey(Mark.PREVIOUS, "Previous", 88),
-        RemoteKey(Mark.PLAY, "Play or pause", 85), RemoteKey(Mark.NEXT, "Next", 87), RemoteKey(Mark.ADD, "Volume up", 24)))
-    val shortcuts = row()
-    shortcuts.addView(textButton("Mute") { sendInput { key(164) } }.apply { labelIcon(this, Mark.MUTE) })
-    shortcuts.addView(textButton("Screen Mirror") { show(Panel.MIRROR) }.apply { labelIcon(this, Mark.MIRROR) })
-    content.addView(shortcuts)
+    val inputRow = row()
+    val textField = input("Type search query or URL…").apply {
+        setSingleLine()
+        textSize = 14f
+        background = card(surface, 12, outlined = true)
+        setPadding(px(12), px(10), px(12), px(10))
+    }
+    val sendBtn = button("Send", emphasis = true) {
+        val cleaned = textField.text.toString().trim()
+        if (cleaned.isNotEmpty()) {
+            sendInput { sendText(cleaned) }
+            textField.setText("")
+            report("Text sent to TV.")
+        }
+    }.apply {
+        minHeight = px(44)
+        minimumHeight = px(44)
+        setPadding(px(16), 0, px(16), 0)
+    }
+    inputRow.addView(textField, LinearLayout.LayoutParams(0, px(44), 1f))
+    inputRow.addView(sendBtn, LinearLayout.LayoutParams(BridgeActivity.WRAP, px(44)).apply { marginStart = px(8) })
+    textCard.addView(inputRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+    textCard.addView(text("Instant ADB input with Space, Enter & Backspace", 11, muted).apply {
+        setPadding(0, px(8), 0, 0)
+    })
+    content.addView(textCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+
+    // Pinned TV App Shortcuts if any
     val favorites = pinnedPackages(tv).sorted()
     if (favorites.isNotEmpty()) {
-        heading("Shortcuts", 19)
+        content.addView(sectionLabel("Pinned TV shortcuts"),
+            LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(4); bottomMargin = px(8) })
         tiles(content, 2, *favorites.map { packageName ->
             Tile(displayName(packageName), Mark.APPS) { tvTask({ openApp(packageName) }) { report("Opened on TV.") } }
         }.toTypedArray())
@@ -107,12 +228,12 @@ private fun BridgeActivity.remoteIcon(mark: Mark, label: String, round: Boolean 
         contentDescription = label
         setImageDrawable(BridgeIcon(mark, accent, px(21)))
         scaleType = ImageView.ScaleType.CENTER
-        background = remoteKeySurface(if (round) 30 else corner)
+        background = remoteKeySurface(if (round) 30 else 14)
         setOnClickListener { action() }
     }
 
-private fun BridgeActivity.remoteKeySurface(radius: Int = corner) = android.graphics.drawable.RippleDrawable(
-    android.content.res.ColorStateList.valueOf(ripple), card(tint, radius, outlined = false), null
+private fun BridgeActivity.remoteKeySurface(radius: Int = 14) = RippleDrawable(
+    ColorStateList.valueOf(ripple), card(tint, radius, outlined = true), null
 )
 
 private fun BridgeActivity.remoteKeyRow(parent: LinearLayout, keys: List<RemoteKey>) {
@@ -135,7 +256,7 @@ internal fun BridgeActivity.mirror() {
     val tv = connection ?: return
     heading("Screen Mirror")
     var paused = false
-    val state = text("Live view", 16, green, true)
+    val state = text("Live view", 15, green, true)
     val mode = row()
     mode.addView(state, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
     val toggle = textButton("Pause mirror") {}
@@ -151,13 +272,13 @@ internal fun BridgeActivity.mirror() {
     val screen = TouchPreview(this) { start, end, interval ->
         sendInput { gesture(start.first, start.second, end.first, end.second, interval) }
     }
-    screen.background = card(0xFF101820.toInt(), 16, outlined = true)
+    screen.background = card(0xFF0D1219.toInt(), 16, outlined = true)
     screen.clipToOutline = true
-    val usableWidth = resources.configuration.screenWidthDp - 60
-    content.addView(screen, LinearLayout.LayoutParams(BridgeActivity.MATCH, px((usableWidth * 9 / 16).coerceAtLeast(125))))
+    val usableWidth = resources.configuration.screenWidthDp - 40
+    content.addView(screen, LinearLayout.LayoutParams(BridgeActivity.MATCH, px((usableWidth * 9 / 16).coerceAtLeast(140))))
     paragraph("Tap, hold, or swipe the picture to control your TV.")
     val keys = outlinedCard()
-    keys.addView(text("Remote controls", 16, bold = true))
+    keys.addView(text("Remote controls", 15, bold = true).apply { setPadding(0, 0, 0, px(8)) })
     remoteKeyRow(keys, listOf(RemoteKey(Mark.UP, "Up", 19), RemoteKey(Mark.LEFT, "Left", 21),
         RemoteKey(null, "Select", 23, "OK"), RemoteKey(Mark.RIGHT, "Right", 22), RemoteKey(Mark.DOWN, "Down", 20)))
     remoteKeyRow(keys, listOf(RemoteKey(Mark.BACK, "Back on TV", 4), RemoteKey(Mark.HOME, "Home on TV", 3),
@@ -185,22 +306,12 @@ private class RemotePad(
     private val send: (Int) -> Unit
 ) : View(activity) {
     private val brush = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val arrows = listOf(Mark.UP, Mark.RIGHT, Mark.DOWN, Mark.LEFT).map { BridgeIcon(it, Color.WHITE) }
     private var startX = 0f
     private var startY = 0f
     var touchMode = false
         set(value) { field = value; invalidate() }
 
     init {
-        val colors = if (activity.dark) intArrayOf(0xFF0E2230.toInt(), 0xFF15324A.toInt())
-        else intArrayOf(0xFF00587B.toInt(), 0xFF0C6B94.toInt())
-        background = android.graphics.drawable.GradientDrawable(
-            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-            colors
-        ).apply {
-            cornerRadius = activity.px(32).toFloat()
-            if (activity.dark) setStroke(activity.px(1), activity.edge)
-        }
         contentDescription = "Directional pad"
         isFocusable = true
         isClickable = true
@@ -208,34 +319,91 @@ private class RemotePad(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val centerX = width / 2f
-        val centerY = height / 2f
-        val radius = min(centerX, centerY) * .92f
-        brush.textAlign = Paint.Align.CENTER
+        val cx = width / 2f
+        val cy = height / 2f
         if (touchMode) {
-            brush.color = android.graphics.Color.WHITE
-            brush.textSize = activity.px(17).toFloat()
-            canvas.drawText("Swipe to move · Tap to select", centerX, centerY, brush)
+            val padRect = RectF(activity.px(4).toFloat(), activity.px(4).toFloat(), width - activity.px(4).toFloat(), height - activity.px(4).toFloat())
+            val r = activity.px(24).toFloat()
+            brush.style = Paint.Style.FILL
+            brush.color = if (activity.dark) 0xFF0C1420.toInt() else Color.WHITE
+            canvas.drawRoundRect(padRect, r, r, brush)
+            brush.style = Paint.Style.STROKE
+            brush.strokeWidth = activity.px(2).toFloat()
+            brush.color = if (activity.dark) 0xFF1E3A5F.toInt() else activity.edge
+            canvas.drawRoundRect(padRect, r, r, brush)
+            brush.style = Paint.Style.FILL
+            brush.color = if (activity.dark) 0xFFB0DEFF.toInt() else activity.accent
+            brush.textAlign = Paint.Align.CENTER
+            brush.textSize = activity.px(16).toFloat()
+            brush.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            canvas.drawText("Swipe to move · Tap to select", cx, cy + brush.textSize / 3f, brush)
             return
         }
-        val ring = RectF(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
-        brush.color = 0x28FFFFFF
-        for (side in 0..3) canvas.drawArc(ring, side * 90f - 40f, 80f, true, brush)
-        brush.color = activity.surface
-        canvas.drawCircle(centerX, centerY, radius * .4f, brush)
-        val gap = radius * .67f
-        val halfIcon = activity.px(12)
-        val centers = listOf(centerX to centerY - gap, centerX + gap to centerY,
-            centerX to centerY + gap, centerX - gap to centerY)
-        for ((icon, center) in arrows.zip(centers)) {
-            val x = center.first.roundToInt()
-            val y = center.second.roundToInt()
-            icon.setBounds(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon)
-            icon.draw(canvas)
+
+        // Exact sculpted circular D-Pad from 02-control-remote.png
+        val radius = min(cx, cy) * 0.94f
+        val innerRadius = radius * 0.91f
+        val centerRadius = radius * 0.34f
+
+        // Outer ring
+        brush.style = Paint.Style.FILL
+        brush.color = if (activity.dark) 0xFF0C1420.toInt() else Color.WHITE
+        canvas.drawCircle(cx, cy, radius, brush)
+        brush.style = Paint.Style.STROKE
+        brush.strokeWidth = activity.px(2).toFloat()
+        brush.color = if (activity.dark) 0xFF1E3A5F.toInt() else activity.edge
+        canvas.drawCircle(cx, cy, radius, brush)
+
+        // Inner sculpted disc
+        brush.style = Paint.Style.FILL
+        brush.color = if (activity.dark) 0xFF0F1926.toInt() else 0xFFF8FAFC.toInt()
+        canvas.drawCircle(cx, cy, innerRadius, brush)
+        brush.style = Paint.Style.STROKE
+        brush.strokeWidth = activity.px(1).toFloat()
+        brush.color = activity.edge
+        canvas.drawCircle(cx, cy, innerRadius, brush)
+
+        // Subtle diagonal cross dividers
+        val d1 = radius * 0.65f
+        val d2 = centerRadius * 1.15f
+        canvas.drawLine(cx - d1, cy - d1, cx - d2, cy - d2, brush)
+        canvas.drawLine(cx + d1, cy - d1, cx + d2, cy - d2, brush)
+        canvas.drawLine(cx - d1, cy + d1, cx - d2, cy + d2, brush)
+        canvas.drawLine(cx + d1, cy + d1, cx + d2, cy + d2, brush)
+
+        // 4 crisp directional triangles
+        brush.style = Paint.Style.FILL
+        brush.color = if (activity.dark) 0xFFB0DEFF.toInt() else activity.accent
+        val arrowDist = radius * 0.66f
+        val sz = activity.px(9).toFloat()
+        fun drawTri(px0: Float, py0: Float, px1: Float, py1: Float, px2: Float, py2: Float) {
+            val p = Path().apply { moveTo(px0, py0); lineTo(px1, py1); lineTo(px2, py2); close() }
+            canvas.drawPath(p, brush)
         }
-        brush.color = activity.accent
+        // Up
+        drawTri(cx, cy - arrowDist - sz, cx - sz, cy - arrowDist + sz * 0.7f, cx + sz, cy - arrowDist + sz * 0.7f)
+        // Down
+        drawTri(cx, cy + arrowDist + sz, cx - sz, cy + arrowDist - sz * 0.7f, cx + sz, cy + arrowDist - sz * 0.7f)
+        // Left
+        drawTri(cx - arrowDist - sz, cy, cx - arrowDist + sz * 0.7f, cy - sz, cx - arrowDist + sz * 0.7f, cy + sz)
+        // Right
+        drawTri(cx + arrowDist + sz, cy, cx + arrowDist - sz * 0.7f, cy - sz, cx + arrowDist - sz * 0.7f, cy + sz)
+
+        // Central cyan OK disc
+        brush.style = Paint.Style.FILL
+        brush.color = activity.accentPill
+        canvas.drawCircle(cx, cy, centerRadius, brush)
+        brush.style = Paint.Style.STROKE
+        brush.strokeWidth = activity.px(2).toFloat()
+        brush.color = 0xFF38BDF8.toInt()
+        canvas.drawCircle(cx, cy, centerRadius, brush)
+
+        brush.style = Paint.Style.FILL
+        brush.color = Color.WHITE
+        brush.textAlign = Paint.Align.CENTER
+        brush.typeface = Typeface.DEFAULT_BOLD
         brush.textSize = activity.px(19).toFloat()
-        canvas.drawText("OK", centerX, centerY + brush.textSize / 3, brush)
+        canvas.drawText("OK", cx, cy + brush.textSize * 0.35f, brush)
     }
 
     override fun performClick(): Boolean {
@@ -281,7 +449,7 @@ private class TouchPreview(
         set(value) { field = value; invalidate() }
 
     init {
-        setBackgroundColor(0xFF101820.toInt())
+        setBackgroundColor(0xFF0D1219.toInt())
         contentDescription = "Live TV preview"
         isClickable = true
     }

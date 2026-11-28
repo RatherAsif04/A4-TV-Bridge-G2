@@ -4,6 +4,18 @@ All notable changes to **A4 TV Bridge G2** (`dev.a4tvbridge.app`) are documented
 
 ---
 
+## [v1.4.2] — Build 13
+
+### Changed & Redesigned
+- **Unified High-Contrast Dark & Light Design System**: True-black obsidian dark mode (`#05070A` canvas, `#0D1219` elevated cards, `#1E293B` borders, `#38BDF8` cyan / `#10B981` emerald / `#F59E0B` amber accents), clean light mode (`#F1F5F9` / `#FFFFFF` / `#00587B`), and a floating 5-tab bottom dock (`Home`, `Apps`, raised circular cyan `Control`, `TV Care`, `Shell`).
+- **Redesigned Dashboard**: Connected TV hero card with `Switch TV` pill and storage bar, 3 colored-dot live metric tiles (`CPU`, `Memory`, `Network`), 2×2 Quick Actions cards with tinted icon badges, and a grouped `More Tools` card.
+- **Redesigned Remote Control**: Full-width `D-Pad` / `Touchpad` segmented toggle, 4-button `Mirror / Screenshot / Record / Power` bar, sculpted circular D-Pad with central cyan `OK` button, split `Volume` & `Media` cards, and an inline `Send Text to TV Keyboard` bar.
+- **Redesigned Clean Up TV & Check my TV**: Auto-matched CleanYourTV profile banner (`AUTO-MATCHED` pill + `Change list`), 3-step `1.0x / 0.5x / 0x` Animation Speedup selector, emerald `Safety Guards Active` card, custom checkbox rows with community disable percentages, emerald Verdict Hero card, 2×2 Status Overview grid, `System Health Checks` with `PASS / WARN / SAFE` pills, and `Post-Reboot Persistence Test` card.
+- **Redesigned Device Info (Network) & Home Theme Studio**: Always-available `Share Info` pill, area-shaded live Download/Upload chart, structured `Wi-Fi Link Details` card, proportional colored per-app traffic bars, `Active / Set` launcher pills, and a 2×2 visual preview grid for `Nordic Slate`, `Obsidian Gold`, `Deep Ocean`, and `Emerald Dusk` 1080p wallpapers.
+- **Documentation & Screenshots**: Added 6 high-DPI screenshots in `docs/screenshots/`, `docs/FEATURES.md`, updated `README.md`, `docs/USAGE.md`, `SECURITY.md`, and `CHANGELOG.md`.
+
+---
+
 ## [v1.4.1] — Build 12
 
 ### Added
