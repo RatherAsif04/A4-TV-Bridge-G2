@@ -321,6 +321,12 @@ internal class TvConnection private constructor(
 
     fun enabledPackages(): Set<String> = packages("-e")
 
+    fun userPackages(): Set<String> = packages("-3")
+
+    fun forceStop(name: String) {
+        checked("am force-stop --user 0 ${packageId(name)}")
+    }
+
     fun readAnimationScales(): List<String> = listOf(
         "window_animation_scale",
         "transition_animation_scale",

@@ -116,6 +116,12 @@ private fun groupProcessMemory(entries: Sequence<Pair<String, Long>>): List<Proc
         ProcessMemory(group, rows.sumOf { it.second }, rows.size)
     }.sortedByDescending(ProcessMemory::kib)
 
+internal fun isKillableUserProcess(processName: String, userPackages: Set<String>): Boolean {
+    val pkg = processName.substringBefore(':').trim()
+    if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) return false
+    return pkg in userPackages && !isCoreProtectedPackage(pkg)
+}
+
 internal data class WifiSnapshot(
     val transport: String,
     val linkSpeedMbps: Int? = null,

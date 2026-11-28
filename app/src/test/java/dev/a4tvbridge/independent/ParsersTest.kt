@@ -433,4 +433,20 @@ class ParsersTest {
         assertEquals(BluetoothDeviceKind.LAPTOP, classifyBluetoothDevice("MacBook Pro"))
         assertEquals(BluetoothDeviceKind.GENERIC, classifyBluetoothDevice("HC-05 Module"))
     }
+
+    @Test fun identifiesKillableNonSystemUserProcessesOnly() {
+        val userApps = setOf(
+            "org.smarttube.stable",
+            "org.jellyfin.androidtv",
+            "com.android.providers.settings" // even if spoofed, core guard blocks it
+        )
+        assertTrue(isKillableUserProcess("org.smarttube.stable", userApps))
+        assertTrue(isKillableUserProcess("org.smarttube.stable:player", userApps))
+        assertTrue(isKillableUserProcess("org.jellyfin.androidtv", userApps))
+        assertFalse(isKillableUserProcess("com.android.systemui", userApps))
+        assertFalse(isKillableUserProcess("com.google.android.tvlauncher", userApps))
+        assertFalse(isKillableUserProcess("system_server", userApps))
+        assertFalse(isKillableUserProcess("surfaceflinger", userApps))
+        assertFalse(isKillableUserProcess("com.android.providers.settings", userApps))
+    }
 }

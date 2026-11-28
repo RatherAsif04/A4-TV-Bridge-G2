@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,10 @@ internal fun BridgeActivity.deviceInfo() {
     var connectedAt = 0L
     var readingCpu: CpuBreakdown? = null
     var readingMemory: MemoryBreakdown? = null
+    var userPackages: Set<String>? = null
+    var memoryRefreshing = false
+    var memoryUpdatedAt = 0L
+    var killingPackages = emptySet<String>()
     var connectedInfo: ConnectedDevicesSnapshot? = null
     var wifiInfo: WifiSnapshot? = null
     var dnsLabel = "Auto"
@@ -74,9 +79,78 @@ internal fun BridgeActivity.deviceInfo() {
     var coreValues = emptyList<Pair<String, Int?>>()
     var reportViews: MonitorViews? = null
 
+    fun renderCurrent() {
+        reportViews?.show(
+            lastReading, points, coreValues, readingCpu, readingMemory,
+            memoryRefreshing, memoryUpdatedAt, userPackages.orEmpty(), killingPackages,
+            connectedInfo, wifiInfo, dnsLabel, appTraffic
+        )
+    }
+
+    suspend fun refreshMemoryNow() {
+        if (memoryRefreshing) return
+        memoryRefreshing = true
+        renderCurrent()
+        try {
+            val needUserPkgs = userPackages == null
+            val (nextMemory, nextUserPkgs) = withContext(Dispatchers.IO) {
+                val mem = tv.processMemory()
+                val pkgs = if (needUserPkgs) runCatching { tv.userPackages() }.getOrDefault(emptySet()) else null
+                mem to pkgs
+            }
+            readingMemory = nextMemory
+            if (nextUserPkgs != null) userPackages = nextUserPkgs
+            val doneAt = SystemClock.elapsedRealtime()
+            processesAt = doneAt
+            memoryUpdatedAt = doneAt
+        } finally {
+            memoryRefreshing = false
+            renderCurrent()
+        }
+    }
+
+    fun triggerMemoryRefresh() {
+        if (memoryRefreshing) return
+        launchSheetTask {
+            runCatching { refreshMemoryNow() }
+                .onFailure { err -> report(err.message ?: "Could not refresh memory processes.", NoticeTone.ERROR) }
+        }
+    }
+
+    fun requestKillProcess(process: ProcessMemory) {
+        val pkg = process.name.substringBefore(':')
+        val title = displayName(pkg)
+        confirm(
+            "Kill $title?",
+            "Force-stops this non-system app ($pkg) on the TV to free ${formatBytes(process.kib * 1024)} of memory. System processes are protected."
+        ) {
+            if (pkg in killingPackages) return@confirm
+            killingPackages = killingPackages + pkg
+            renderCurrent()
+            launchSheetTask {
+                val outcome = withContext(Dispatchers.IO) { runCatching { tv.forceStop(pkg) } }
+                killingPackages = killingPackages - pkg
+                outcome.onSuccess {
+                    report("Stopped $title.", NoticeTone.SUCCESS)
+                    runCatching { refreshMemoryNow() }
+                }.onFailure { err ->
+                    report(err.message ?: "Could not stop $title.", NoticeTone.ERROR)
+                    renderCurrent()
+                }
+            }
+        }
+    }
+
     fun screen() {
         reportPane.removeAllViews()
-        reportViews = buildReport(selection, reportPane, tv) { reportText -> latestShareReport = reportText }
+        reportViews = buildReport(
+            selection,
+            reportPane,
+            tv,
+            onShareText = { reportText -> latestShareReport = reportText },
+            onRefreshMemory = { triggerMemoryRefresh() },
+            onKillProcess = { process -> requestKillProcess(process) }
+        )
         for (n in 0 until tabs.childCount) {
             val tab = tabs.getChildAt(n) as TextView
             val active = MonitorPage.entries[n] == selection
@@ -89,7 +163,7 @@ internal fun BridgeActivity.deviceInfo() {
             } else null
             tab.isSelected = active
         }
-        reportViews.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        renderCurrent()
     }
 
     for (tab in MonitorPage.entries) {
@@ -133,22 +207,20 @@ internal fun BridgeActivity.deviceInfo() {
                 else -> "Automatic"
             }
         }
-        reportViews?.show(sample, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        renderCurrent()
         if (connectedInfo == null || (selection == MonitorPage.OVERVIEW && now - connectedAt >= 15_000)) {
             connectedAt = now
             connectedInfo = withContext(Dispatchers.IO) { runCatching { tv.connectedDevices() }.getOrNull() }
                 ?: connectedInfo ?: ConnectedDevicesSnapshot(emptyList(), "Unavailable")
-            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+            renderCurrent()
         }
         if (selection == MonitorPage.CPU && (readingCpu == null || now - cpuProcessesAt >= 5000)) {
             cpuProcessesAt = now
             readingCpu = withContext(Dispatchers.IO) { tv.processCpu() }
-            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+            renderCurrent()
         }
-        if (selection == MonitorPage.MEMORY && (readingMemory == null || now - processesAt >= 5000)) {
-            processesAt = now
-            readingMemory = withContext(Dispatchers.IO) { tv.processMemory() }
-            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        if (selection == MonitorPage.MEMORY && !memoryRefreshing && (readingMemory == null || now - processesAt >= 5000)) {
+            refreshMemoryNow()
         }
         if (selection == MonitorPage.NETWORK && (appTraffic == null || now - networkAt >= 5000)) {
             networkAt = now
@@ -166,7 +238,7 @@ internal fun BridgeActivity.deviceInfo() {
                 dns.getOrElse(0) { "" }.equals("off", true) -> "Off"
                 else -> "Automatic"
             }
-            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+            renderCurrent()
         }
     }
 }
@@ -178,6 +250,10 @@ private class MonitorViews(
         List<Pair<String, Int?>>,
         CpuBreakdown?,
         MemoryBreakdown?,
+        Boolean,
+        Long,
+        Set<String>,
+        Set<String>,
         ConnectedDevicesSnapshot?,
         WifiSnapshot?,
         String,
@@ -189,7 +265,9 @@ private fun BridgeActivity.buildReport(
     section: MonitorPage,
     pane: LinearLayout,
     tv: TvConnection,
-    onShareText: (String) -> Unit
+    onShareText: (String) -> Unit,
+    onRefreshMemory: () -> Unit,
+    onKillProcess: (ProcessMemory) -> Unit
 ): MonitorViews {
     val summary = outlinedCard(field, radius = 20, stroke = 1)
     pane.addView(summary, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
@@ -295,6 +373,29 @@ private fun BridgeActivity.buildReport(
     val subheading = outlinedCard(field, radius = 20, stroke = 1)
     val extra = text("", 13, muted)
     val processes = column()
+    val memoryRefreshBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        isIndeterminate = true
+        indeterminateTintList = ColorStateList.valueOf(accent)
+        visibility = View.INVISIBLE
+    }
+    val memoryRefreshSpinner = ProgressBar(this, null, android.R.attr.progressBarStyleSmall).apply {
+        isIndeterminate = true
+        indeterminateTintList = ColorStateList.valueOf(accent)
+        visibility = View.GONE
+    }
+    val memoryRefreshLabel = text("Refresh", 12, accentBright, bold = true)
+    val memoryRefreshPill = row().apply {
+        gravity = Gravity.CENTER
+        minimumHeight = px(48)
+        background = interactiveBackground(card(surfaceElevated, 12, outlined = true), radius = 12)
+        setPadding(px(12), px(6), px(12), px(6))
+        isClickable = true
+        isFocusable = true
+        contentDescription = "Refresh memory processes"
+        addView(memoryRefreshSpinner, LinearLayout.LayoutParams(px(14), px(14)).apply { rightMargin = px(6) })
+        addView(memoryRefreshLabel)
+        setOnClickListener { onRefreshMemory() }
+    }
     if (section == MonitorPage.CPU) {
         pane.addView(subheading)
         subheading.addView(text("CPU BY PROCESS GROUP", 11, dim, bold = true).apply { letterSpacing = 0.08f })
@@ -302,8 +403,17 @@ private fun BridgeActivity.buildReport(
         subheading.addView(processes)
     } else if (section == MonitorPage.MEMORY) {
         pane.addView(subheading)
-        subheading.addView(text("MEMORY BY PROCESS GROUP", 11, dim, bold = true).apply { letterSpacing = 0.08f })
-        subheading.addView(extra.apply { setPadding(0, px(6), 0, px(6)) })
+        val memHeader = row()
+        memHeader.addView(
+            text("MEMORY BY PROCESS GROUP", 11, dim, bold = true).apply { letterSpacing = 0.08f },
+            LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { rightMargin = px(8) }
+        )
+        memHeader.addView(memoryRefreshPill)
+        subheading.addView(memHeader)
+        subheading.addView(memoryRefreshBar, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(3)).apply {
+            topMargin = px(4)
+        })
+        subheading.addView(extra.apply { setPadding(0, px(4), 0, px(6)) })
         subheading.addView(processes)
     } else if (section == MonitorPage.NETWORK) {
         pane.addView(subheading)
@@ -334,6 +444,8 @@ private fun BridgeActivity.buildReport(
 
     var lastCpuList: CpuBreakdown? = null
     var lastList: MemoryBreakdown? = null
+    var lastUserPkgs: Set<String> = emptySet()
+    var lastKilling: Set<String> = emptySet()
     var lastTraffic: List<AppTraffic>? = null
     var lastConnected: ConnectedDevicesSnapshot? = null
     var connectedRendered = false
@@ -524,7 +636,7 @@ private fun BridgeActivity.buildReport(
         connectedBody.addView(audioRow)
     }
 
-    return MonitorViews { reading, series, cores, cpu, memory, connected, wifi, dns, trafficRows ->
+    return MonitorViews { reading, series, cores, cpu, memory, isMemRefreshing, memUpdatedAt, userPkgs, killing, connected, wifi, dns, trafficRows ->
         val point = series.lastOrNull()
         if (rates.isNotEmpty()) {
             rates[0].text = point?.incoming?.let { "${formatBytes(it)}/s" } ?: "—"
@@ -636,24 +748,89 @@ private fun BridgeActivity.buildReport(
                 val swap = reading?.swapTotal?.let { total -> reading.swapFree?.let { total - it } }
                 facts.text = "In use  ${formatBytes(used)}       Free  ${formatBytes(reading?.ramFree)}\n" +
                     "Reclaimable  ${formatBytes(spare)}\nSwap used  ${formatBytes(swap)} of ${formatBytes(reading?.swapTotal)}"
+
+                memoryRefreshBar.visibility = if (isMemRefreshing) View.VISIBLE else View.INVISIBLE
+                memoryRefreshSpinner.visibility = if (isMemRefreshing) View.VISIBLE else View.GONE
+                memoryRefreshLabel.text = if (isMemRefreshing) "Refreshing…" else "Refresh"
+                memoryRefreshLabel.setTextColor(if (isMemRefreshing) accent else accentBright)
+                memoryRefreshPill.isEnabled = !isMemRefreshing
+                memoryRefreshPill.background = if (isMemRefreshing) {
+                    card(tint, 12, outlined = false)
+                } else {
+                    interactiveBackground(card(surfaceElevated, 12, outlined = true), radius = 12)
+                }
+
+                val freshness = if (memUpdatedAt > 0L) {
+                    val ageSec = ((SystemClock.elapsedRealtime() - memUpdatedAt) / 1000L).coerceAtLeast(0L)
+                    if (ageSec <= 1L) " · Updated just now" else " · Updated ${ageSec}s ago"
+                } else ""
                 extra.text = when {
                     memory == null -> "Reading memory by process…"
                     memory.rows.isEmpty() -> "Process memory is unavailable."
-                    memory.method == "PSS" -> "Proportional set size (PSS) from Android."
-                    else -> "Resident memory estimate (RSS) from Android."
+                    memory.method == "PSS" -> "Proportional set size (PSS)$freshness"
+                    else -> "Resident memory estimate (RSS)$freshness"
                 }
-                if (memory != lastList) {
+                if (memory != lastList || userPkgs != lastUserPkgs || killing != lastKilling) {
                     lastList = memory
+                    lastUserPkgs = userPkgs
+                    lastKilling = killing
                     processes.removeAllViews()
-                    for ((name, kib, count) in memory?.rows.orEmpty().take(12)) {
+                    for (entry in memory?.rows.orEmpty().take(12)) {
+                        val (name, kib, count) = entry
+                        val killable = isKillableUserProcess(name, userPkgs)
+                        val pkg = name.substringBefore(':')
+                        val stopping = pkg in killing
                         processes.addView(rule())
-                        val line = row().apply { minimumHeight = px(48) }
-                        val process = column().apply {
-                            addView(text(displayName(name), 14, bold = true))
-                            addView(text("$count process${if (count == 1) "" else "es"}", 11, muted))
+                        val line = row().apply {
+                            minimumHeight = px(54)
+                            setPadding(0, px(6), 0, px(6))
                         }
-                        line.addView(process, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-                        line.addView(text(formatBytes(kib * 1024), 15, bold = true).apply { typeface = monoTypeface })
+                        val process = column().apply {
+                            addView(text(displayName(name), 14, bold = true).apply {
+                                maxLines = 1
+                                ellipsize = TextUtils.TruncateAt.END
+                            })
+                            val sub = "$count process${if (count == 1) "" else "es"}" +
+                                if (killable) " · User app" else ""
+                            addView(text(sub, 11, muted))
+                        }
+                        line.addView(process, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
+                            rightMargin = px(8)
+                        })
+                        line.addView(
+                            text(formatBytes(kib * 1024), 14, bold = true).apply { typeface = monoTypeface },
+                            LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply {
+                                rightMargin = if (killable) px(10) else 0
+                            }
+                        )
+                        if (killable) {
+                            val killBtn = text(
+                                if (stopping) "Stopping…" else "Kill",
+                                12,
+                                if (stopping) muted else dangerInk,
+                                bold = true
+                            ).apply {
+                                gravity = Gravity.CENTER
+                                minHeight = px(48)
+                                minimumHeight = px(48)
+                                minWidth = px(54)
+                                background = if (stopping) {
+                                    card(surfaceElevated, 10, outlined = true)
+                                } else {
+                                    interactiveBackground(
+                                        card(dangerBg, 10, outlined = true).apply { setStroke(px(1), dangerInk) },
+                                        radius = 10
+                                    )
+                                }
+                                setPadding(px(12), px(6), px(12), px(6))
+                                isClickable = !stopping
+                                isFocusable = !stopping
+                                isEnabled = !stopping
+                                contentDescription = "Kill ${displayName(name)}"
+                                setOnClickListener { onKillProcess(entry) }
+                            }
+                            line.addView(killBtn)
+                        }
                         processes.addView(line)
                     }
                 }
