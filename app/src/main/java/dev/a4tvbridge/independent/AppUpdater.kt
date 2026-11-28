@@ -22,9 +22,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 internal const val APP_GITHUB_REPO = "RatherAsif04/A4-TV-Bridge"
-private const val STARTUP_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L
 private const val KEY_LAST_UPDATE_CHECK = "update-last-check-ms"
-private const val KEY_DISMISSED_TAG = "update-dismissed-tag"
+private const val KEY_UPDATE_ETAG = "update-etag"
+private const val KEY_UPDATE_CACHED_JSON = "update-cached-json"
 
 internal data class ReleaseAssetInfo(
     val name: String,
@@ -90,7 +90,12 @@ internal fun parseSha256Sums(text: String, fileName: String): String? {
     return null
 }
 
-private fun <T> updateHttpGet(start: URL, trustedHosts: Set<String>, read: (HttpURLConnection) -> T): T {
+private fun <T> updateHttpGet(
+    start: URL,
+    trustedHosts: Set<String>,
+    ifNoneMatch: String? = null,
+    read: (HttpURLConnection) -> T
+): T {
     var url = start
     repeat(6) {
         check(url.protocol == "https" && url.host in trustedHosts && url.userInfo == null && url.port in setOf(-1, 443)) {
@@ -102,12 +107,15 @@ private fun <T> updateHttpGet(start: URL, trustedHosts: Set<String>, read: (Http
         conn.setRequestProperty("User-Agent", "A4-TV-Bridge/${BuildConfig.VERSION_NAME}")
         if (url.host == "api.github.com") {
             conn.setRequestProperty("Accept", "application/vnd.github+json")
+            if (!ifNoneMatch.isNullOrBlank()) {
+                conn.setRequestProperty("If-None-Match", ifNoneMatch)
+            }
         }
         conn.connectTimeout = 10_000
         conn.readTimeout = 20_000
         try {
             val status = conn.responseCode
-            if (status == 200) return read(conn)
+            if (status == 200 || status == 304) return read(conn)
             check(status in setOf(301, 302, 303, 307, 308)) { "GitHub returned HTTP $status." }
             url = URL(url, conn.getHeaderField("Location") ?: error("Empty redirect from GitHub."))
         } finally {
@@ -130,12 +138,7 @@ private fun readUtf8Limited(conn: HttpURLConnection, limitBytes: Int): String =
         out.toString("UTF-8")
     }
 
-internal fun fetchLatestAppRelease(repo: String = APP_GITHUB_REPO): AppUpdateInfo? {
-    val body = updateHttpGet(
-        URL("https://api.github.com/repos/$repo/releases/latest"),
-        setOf("api.github.com")
-    ) { readUtf8Limited(it, 1024 * 1024) }
-
+internal fun parseLatestReleaseJson(body: String, repo: String = APP_GITHUB_REPO): AppUpdateInfo? {
     val json = JSONObject(body)
     if (json.optBoolean("draft") || json.optBoolean("prerelease")) return null
     val tag = json.optString("tag_name").trim()
@@ -173,6 +176,51 @@ internal fun fetchLatestAppRelease(repo: String = APP_GITHUB_REPO): AppUpdateInf
         apkAsset = pickReleaseApkAsset(parsedAssets, repo),
         checksumsUrl = checksumsUrl
     )
+}
+
+internal fun fetchLatestAppRelease(repo: String = APP_GITHUB_REPO): AppUpdateInfo? {
+    val body = updateHttpGet(
+        URL("https://api.github.com/repos/$repo/releases/latest"),
+        setOf("api.github.com")
+    ) { readUtf8Limited(it, 1024 * 1024) }
+    return parseLatestReleaseJson(body, repo)
+}
+
+internal fun fetchLatestAppReleaseCached(
+    context: Context,
+    repo: String = APP_GITHUB_REPO
+): AppUpdateInfo? {
+    val prefs = context.getSharedPreferences("bridge", Context.MODE_PRIVATE)
+    val savedEtag = prefs.getString(KEY_UPDATE_ETAG, null)
+    val savedJson = prefs.getString(KEY_UPDATE_CACHED_JSON, null)
+    val ifNoneMatch = if (!savedEtag.isNullOrBlank() && !savedJson.isNullOrBlank()) savedEtag else null
+
+    return try {
+        val (status, newEtag, body) = updateHttpGet(
+            URL("https://api.github.com/repos/$repo/releases/latest"),
+            setOf("api.github.com"),
+            ifNoneMatch = ifNoneMatch
+        ) { conn ->
+            val code = conn.responseCode
+            val etag = conn.getHeaderField("ETag")?.trim()
+            val text = if (code == 304) null else readUtf8Limited(conn, 1024 * 1024)
+            Triple(code, etag, text)
+        }
+        if (status == 304 && !savedJson.isNullOrBlank()) {
+            parseLatestReleaseJson(savedJson, repo)
+        } else if (!body.isNullOrBlank()) {
+            prefs.edit().apply {
+                if (!newEtag.isNullOrBlank()) putString(KEY_UPDATE_ETAG, newEtag)
+                putString(KEY_UPDATE_CACHED_JSON, body)
+            }.apply()
+            parseLatestReleaseJson(body, repo)
+        } else {
+            null
+        }
+    } catch (error: Exception) {
+        if (!savedJson.isNullOrBlank()) runCatching { parseLatestReleaseJson(savedJson, repo) }.getOrNull()
+        else throw error
+    }
 }
 
 internal fun downloadVerifiedUpdateApk(
@@ -261,25 +309,29 @@ private fun cleanReleaseNotes(raw: String): String {
 }
 
 internal fun BridgeActivity.checkAppUpdateOnStartup() {
-    val now = System.currentTimeMillis()
-    val lastCheck = preferences.getLong(KEY_LAST_UPDATE_CHECK, 0L)
-    if (now - lastCheck < STARTUP_CHECK_INTERVAL_MS) return
+    if (isFinishing || isDestroyed) return
+    if (activeUpdateDialog?.isShowing == true) return
+    if (updateCheckJob?.isActive == true) return
 
-    launchSheetTask {
+    updateCheckJob = launchSheetTask {
         val latest = try {
-            withContext(Dispatchers.IO) { fetchLatestAppRelease() }
+            updateFetcher()
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
             null
         } ?: return@launchSheetTask
 
+        if (isFinishing || isDestroyed) return@launchSheetTask
         preferences.edit().putLong(KEY_LAST_UPDATE_CHECK, System.currentTimeMillis()).apply()
-        if (!isNewerVersion(latest.version, BuildConfig.VERSION_NAME)) return@launchSheetTask
+        if (!isNewerVersion(latest.version, BuildConfig.VERSION_NAME)) {
+            availableUpdate = null
+            return@launchSheetTask
+        }
 
         availableUpdate = latest
-        val dismissed = preferences.getString(KEY_DISMISSED_TAG, null)
-        if (dismissed != latest.tagName && !isFinishing && !isDestroyed) {
+        refreshDashboardIfVisible()
+        if (activeUpdateDialog?.isShowing != true && !isFinishing && !isDestroyed) {
             showUpdateSheet(latest)
         }
     }
@@ -347,7 +399,12 @@ internal fun BridgeActivity.launchApkInstaller(apkFile: File) {
 }
 
 internal fun BridgeActivity.showUpdateSheet(update: AppUpdateInfo) {
+    activeUpdateDialog?.takeIf { it.isShowing }?.dismiss()
     showSheet("Update available · ${update.tagName}") { popup, frame ->
+        activeUpdateDialog = popup
+        popup.setOnDismissListener {
+            if (activeUpdateDialog === popup) activeUpdateDialog = null
+        }
         val body = column()
         val versionCard = outlinedCard(fill = tint)
         versionCard.addView(text(update.title, 17, bold = true))
@@ -437,8 +494,7 @@ internal fun BridgeActivity.showUpdateSheet(update: AppUpdateInfo) {
             popup.dismiss()
             openLink(update.htmlUrl)
         }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-        secondary.addView(button("Skip ${update.tagName}") {
-            preferences.edit().putString(KEY_DISMISSED_TAG, update.tagName).apply()
+        secondary.addView(button("Later") {
             popup.dismiss()
         }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(8) })
         actionHost.addView(secondary, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))

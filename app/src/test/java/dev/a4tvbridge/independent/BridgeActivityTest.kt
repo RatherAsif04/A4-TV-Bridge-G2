@@ -131,6 +131,53 @@ class BridgeActivityTest {
         }
     }
 
+    @Test fun pushesAppUpdateImmediatelyWhenAppOpens() {
+        val controller = Robolectric.buildActivity(BridgeActivity::class.java)
+        controller.use {
+            val app = controller.get()
+            var fetchCount = 0
+            app.updateFetcher = {
+                fetchCount++
+                AppUpdateInfo(
+                    tagName = "v9.9.9",
+                    version = "9.9.9",
+                    title = "A4 TV Bridge 9.9.9",
+                    notes = "Faster updates",
+                    htmlUrl = "https://github.com/RatherAsif04/A4-TV-Bridge/releases/tag/v9.9.9",
+                    apkAsset = ReleaseAssetInfo(
+                        name = "A4-TV-Bridge-9.9.9-release.apk",
+                        downloadUrl = "https://github.com/RatherAsif04/A4-TV-Bridge/releases/download/v9.9.9/A4-TV-Bridge-9.9.9-release.apk",
+                        sizeBytes = 4_200_000L
+                    ),
+                    checksumsUrl = null
+                )
+            }
+            controller.setup()
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+
+            assertEquals(1, fetchCount)
+            val firstDialog = ShadowDialog.getLatestDialog()
+            assertNotNull(firstDialog)
+            assertTrue(firstDialog.isShowing)
+            val firstTexts = flatten(firstDialog.window!!.decorView).filterIsInstance<TextView>().map { it.text.toString() }.toList()
+            assertTrue(firstTexts.any { it.contains("Update available · v9.9.9") })
+            assertTrue(firstTexts.any { it.contains("Download & install v9.9.9") })
+            assertTrue("Later" in firstTexts)
+
+            // Dismissing with Later closes for now, and reopening the app immediately pushes again
+            flatten(firstDialog.window!!.decorView).first { it is TextView && it.text.toString() == "Later" }.performClick()
+            assertTrue(!firstDialog.isShowing)
+
+            controller.stop().start()
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+
+            assertEquals(2, fetchCount)
+            val reopenedDialog = ShadowDialog.getLatestDialog()
+            assertNotNull(reopenedDialog)
+            assertTrue(reopenedDialog.isShowing)
+        }
+    }
+
     private fun flatten(node: View): Sequence<View> = sequence {
         yield(node)
         if (node is ViewGroup) {

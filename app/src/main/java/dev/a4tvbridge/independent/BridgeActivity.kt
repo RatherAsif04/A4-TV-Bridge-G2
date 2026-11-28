@@ -139,6 +139,11 @@ class BridgeActivity : Activity() {
     private var pendingSave: File? = null
     internal var availableUpdate: AppUpdateInfo? = null
     internal var pendingUpdateApk: File? = null
+    internal var updateCheckJob: Job? = null
+    internal var activeUpdateDialog: android.app.Dialog? = null
+    internal var updateFetcher: suspend () -> AppUpdateInfo? = {
+        withContext(Dispatchers.IO) { fetchLatestAppReleaseCached(this@BridgeActivity) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -162,7 +167,6 @@ class BridgeActivity : Activity() {
                 }
             }
         }
-        checkAppUpdateOnStartup()
     }
 
     private fun registerPredictiveBack() {
@@ -200,8 +204,13 @@ class BridgeActivity : Activity() {
             (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls())
         ) {
             launchApkInstaller(stagedApk)
+            if (page in setOf(Panel.DASHBOARD, Panel.MIRROR, Panel.INFO)) draw()
+            return
         }
         if (page in setOf(Panel.DASHBOARD, Panel.MIRROR, Panel.INFO)) draw()
+        if (onDocuments == null && pendingSave == null) {
+            checkAppUpdateOnStartup()
+        }
     }
 
     override fun onDestroy() {
@@ -249,6 +258,10 @@ class BridgeActivity : Activity() {
         }
         page = next
         draw()
+    }
+
+    internal fun refreshDashboardIfVisible() {
+        if (page == Panel.DASHBOARD) draw()
     }
 
     internal fun openScanner(after: Panel = Panel.DASHBOARD) {

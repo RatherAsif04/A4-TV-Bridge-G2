@@ -100,9 +100,9 @@ Open **Apps** in the bottom dock:
 
 ## 10. Automatic In-App Updates
 
-A4 TV Bridge checks `RatherAsif04/A4-TV-Bridge` GitHub Releases automatically on startup (at most once every 6 hours) and manually under **About → Check for updates**:
+A4 TV Bridge checks `RatherAsif04/A4-TV-Bridge` GitHub Releases automatically every time the app opens and manually under **About → Check for updates**:
 
-1. When a newer release is available, tap **Update now** (or **Install update** in **About**).
+1. When a newer release is available, the update sheet opens immediately — tap **Download & install** (or **Install update** in **About**).
 2. The app downloads the APK with a live progress bar, verifies its **SHA-256 digest** and **package ID** (`dev.a4tvbridge.app`), and opens Android's installer.
 3. If Android asks for **Install unknown apps** permission for A4 TV Bridge, allow it once and press Back — the update prompt resumes automatically.
 

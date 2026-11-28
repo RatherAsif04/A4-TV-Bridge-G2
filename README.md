@@ -134,7 +134,7 @@
 ### 9. ADB Shell Terminal, Appearance &amp; Automatic In-App Updates
 - **Upgraded ADB Shell**: Run TV commands with `13sp` **JetBrains Mono** output, quick command preset chips, clickable recent command history, and exit code feedback.
 - **Appearance &amp; Adaptive Design**: Switch instantly between **System Default**, **Light**, and **Dark**, toggle **Android 12+ Material You Dynamic Color**, and enjoy semantic auto-dismissing status banners and D-pad focus support.
-- **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge` releases silently on startup (6-hour throttle) and on demand via **About → Check for updates**, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's installer in one tap.
+- **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge` releases immediately whenever the app opens (with lightweight `ETag` conditional caching) and on demand via **About → Check for updates**, pushes the update sheet right away when a newer release is found, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's installer in one tap.
 
 ---
 
