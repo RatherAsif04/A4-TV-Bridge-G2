@@ -221,3 +221,213 @@ private fun summarizeUidTraffic(
     }
     .sortedByDescending(AppTraffic::totalBytes)
 
+internal data class CpuBreakdown(val method: String, val rows: List<ProcessCpu>)
+
+internal data class ProcessCpu(val name: String, val percent: Double, val processes: Int)
+
+internal fun parseProcessCpuInfo(input: String): List<ProcessCpu> {
+    val pattern = Regex("""^\s*\+?(\d+(?:\.\d+)?)%\s+\d+/(\S+?):\s+.*""")
+    return groupProcessCpu(
+        input.lineSequence().mapNotNull { line ->
+            val match = pattern.matchEntire(line) ?: return@mapNotNull null
+            val pct = match.groupValues[1].toDoubleOrNull()?.takeIf { it > 0.0 } ?: return@mapNotNull null
+            val name = match.groupValues[2].trim()
+            if (name.isBlank() || name.equals("TOTAL", true)) return@mapNotNull null
+            name to pct
+        }
+    )
+}
+
+internal fun parseTopCpu(input: String): List<ProcessCpu> {
+    var cpuIndex = -1
+    var argsIndex = -1
+    val rows = mutableListOf<Pair<String, Double>>()
+    for (raw in input.lineSequence()) {
+        val line = raw.trim()
+        if (line.isEmpty()) continue
+        if (cpuIndex < 0) {
+            val cleaned = line.replace("[", " ").replace("]", " ")
+            val cols = cleaned.split(Regex("\\s+"))
+            val ci = cols.indexOfFirst { it.equals("%CPU", true) || it.equals("CPU%", true) }
+            if (ci >= 0) {
+                cpuIndex = ci
+                argsIndex = cols.indexOfLast {
+                    it.equals("ARGS", true) || it.equals("NAME", true) || it.equals("CMD", true) || it.equals("COMMAND", true)
+                }.takeIf { it >= 0 } ?: (cols.size - 1)
+            }
+            continue
+        }
+        val parts = line.split(Regex("\\s+"))
+        if (parts.size <= maxOf(cpuIndex, argsIndex)) continue
+        val pct = parts[cpuIndex].removeSuffix("%").toDoubleOrNull()?.takeIf { it > 0.0 } ?: continue
+        val cmd = parts[argsIndex].substringAfterLast('/').trim()
+        if (cmd.isBlank() || cmd == "top" || cmd == "sh" || cmd == "dumpsys") continue
+        rows += cmd to pct
+    }
+    return groupProcessCpu(rows.asSequence())
+}
+
+private fun groupProcessCpu(entries: Sequence<Pair<String, Double>>): List<ProcessCpu> =
+    entries.groupBy { it.first.substringBefore(':') }.map { (group, rows) ->
+        ProcessCpu(group, rows.sumOf { it.second }, rows.size)
+    }.sortedByDescending(ProcessCpu::percent)
+
+internal enum class BluetoothDeviceKind { REMOTE, AUDIO, GENERIC }
+
+internal data class BluetoothDeviceInfo(
+    val name: String,
+    val address: String,
+    val transport: String,
+    val connected: Boolean,
+    val kind: BluetoothDeviceKind
+)
+
+internal data class ConnectedDevicesSnapshot(
+    val bluetooth: List<BluetoothDeviceInfo>,
+    val audioOutput: String
+)
+
+internal fun classifyBluetoothDevice(name: String): BluetoothDeviceKind {
+    val n = name.lowercase()
+    return when {
+        listOf("remote", "rcu", "controller", "gamepad", "joystick", "airmouse", "air mouse")
+            .any { it in n } -> BluetoothDeviceKind.REMOTE
+        listOf("buds", "pods", "headphone", "headset", "earbud", "earphone", "airpod",
+            "soundbar", "speaker", "audio", "jbl", "bose", "beats", "wh-", "wf-", "sony xm", "anc")
+            .any { it in n } -> BluetoothDeviceKind.AUDIO
+        else -> BluetoothDeviceKind.GENERIC
+    }
+}
+
+internal fun parseConnectedDevices(
+    btBonded: String,
+    btConn: String,
+    audioMusic: String,
+    audioOut: String
+): ConnectedDevicesSnapshot {
+    val macPattern = Regex("""((?:[0-9A-Fa-f]{2}|XX):(?:[0-9A-Fa-f]{2}|XX):(?:[0-9A-Fa-f]{2}|XX):(?:[0-9A-Fa-f]{2}|XX):[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})""")
+    val connectedMacs = mutableSetOf<String>()
+    val connectedTails = mutableSetOf<String>()
+    var inConnectedBlock = false
+    for (raw in btConn.lineSequence()) {
+        val line = raw.trim()
+        if (line.isEmpty()) {
+            inConnectedBlock = false
+            continue
+        }
+        val lower = line.lowercase()
+        if ("mInputDevices" in line || "connected devices" in lower) {
+            inConnectedBlock = true
+        }
+        val mac = macPattern.find(line)?.groupValues?.get(1)?.uppercase()
+        if (mac != null) {
+            val isExplicitlyConnected =
+                "state_connected" in lower ||
+                    "state=connected" in lower ||
+                    "(connected)" in lower ||
+                    "connected: true" in lower ||
+                    Regex("""mconnectionstate\s*[:=]\s*2\b""").containsMatchIn(lower) ||
+                    (inConnectedBlock && (Regex(""":\s*2\b""").containsMatchIn(line) || "connected" in lower)) ||
+                    ("active device" in lower && "null" !in lower)
+            if (isExplicitlyConnected) {
+                connectedMacs += mac
+                connectedTails += mac.takeLast(5)
+            }
+        } else if (line.endsWith(":") && "mInputDevices" !in line && "connected devices" !in lower) {
+            inConnectedBlock = false
+        }
+    }
+
+    val seenMacs = mutableSetOf<String>()
+    val devices = mutableListOf<BluetoothDeviceInfo>()
+    val lines = btBonded.lines()
+    val headerIdx = lines.indexOfFirst { it.contains("Bonded devices", ignoreCase = true) }
+    val scanLines = if (headerIdx >= 0) lines.drop(headerIdx + 1) else lines
+    for (raw in scanLines) {
+        val line = raw.trim()
+        if (line.isEmpty()) {
+            if (devices.isNotEmpty()) break else continue
+        }
+        val macMatch = macPattern.find(line)
+        if (macMatch == null) {
+            if (devices.isNotEmpty()) break else continue
+        }
+        val mac = macMatch.groupValues[1].uppercase()
+        if (!seenMacs.add(mac)) continue
+
+        var rest = line.substring(macMatch.range.last + 1).trim()
+        var transport = "Bluetooth"
+        val transportMatch = Regex("""^[\[(]\s*([^\]\)]+?)\s*[\])]\s*(.*)$""").matchEntire(rest)
+        if (transportMatch != null) {
+            val rawTransport = transportMatch.groupValues[1].trim().uppercase()
+            transport = when {
+                rawTransport == "LE" || rawTransport == "BLE" -> "BLE"
+                rawTransport == "DUAL" -> "Dual"
+                rawTransport.contains("BR") || rawTransport.contains("EDR") -> "Bluetooth"
+                else -> "Bluetooth"
+            }
+            rest = transportMatch.groupValues[2].trim()
+        }
+        var inlineConnected = false
+        if (rest.endsWith("(connected)", ignoreCase = true)) {
+            inlineConnected = true
+            rest = rest.dropLast("(connected)".length).trim()
+        } else if (rest.endsWith("(disconnected)", ignoreCase = true)) {
+            rest = rest.dropLast("(disconnected)".length).trim()
+        }
+        val cleanName = rest.ifBlank { mac }
+        val isConnected = inlineConnected || mac in connectedMacs ||
+            (mac.startsWith("XX:") && mac.takeLast(5) in connectedTails)
+        devices += BluetoothDeviceInfo(
+            name = cleanName,
+            address = mac,
+            transport = transport,
+            connected = isConnected,
+            kind = classifyBluetoothDevice(cleanName)
+        )
+    }
+
+    val sortedDevices = devices.sortedByDescending { it.connected }
+    val audioOutput = resolveAudioOutput(audioMusic, audioOut)
+    return ConnectedDevicesSnapshot(sortedDevices, audioOutput)
+}
+
+private fun resolveAudioOutput(audioMusic: String, audioOut: String): String {
+    val musicDeviceLine = audioMusic.lineSequence()
+        .map(String::trim)
+        .firstOrNull { it.startsWith("Devices:", ignoreCase = true) }
+        ?.substringAfter(':')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+
+    val musicCurrentLine = audioMusic.lineSequence()
+        .map(String::trim)
+        .firstOrNull { it.startsWith("Current:", ignoreCase = true) }
+        ?.substringAfter(':')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+
+    val candidates = listOfNotNull(musicDeviceLine, musicCurrentLine, audioOut.takeIf { it.isNotBlank() })
+    for (candidate in candidates) {
+        val mapped = mapAudioRouteLabel(candidate)
+        if (mapped != null) return mapped
+    }
+    return if (audioMusic.isNotBlank() || audioOut.isNotBlank()) "TV speakers" else "Unavailable"
+}
+
+private fun mapAudioRouteLabel(raw: String): String? {
+    val s = raw.lowercase()
+    return when {
+        "bt_a2dp" in s || "bluetooth_a2dp" in s || "ble_headset" in s || "ble_speaker" in s || "a2dp" in s -> "Bluetooth audio"
+        "hdmi_earc" in s || "earc" in s -> "HDMI eARC"
+        "hdmi_arc" in s -> "HDMI ARC"
+        "hdmi" in s || "aux_digital" in s -> "HDMI audio"
+        "spdif" in s || "optical" in s -> "Optical / S/PDIF"
+        "usb_headset" in s || "usb_device" in s || "usb_accessory" in s -> "USB audio"
+        "wired_headset" in s || "wired_headphone" in s || Regex("""\bline\b""").containsMatchIn(s) -> "Wired audio"
+        "speaker" in s -> "TV speakers"
+        else -> null
+    }
+}
+
+

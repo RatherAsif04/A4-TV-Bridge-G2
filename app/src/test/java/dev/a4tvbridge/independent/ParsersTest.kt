@@ -324,4 +324,94 @@ class ParsersTest {
         )
         assertEquals("Store demo overlay.", noted.summary)
     }
+
+    @Test fun parsesProcessCpuInfoAndTopFormats() {
+        val cpuInfo = parseProcessCpuInfo("""
+            Load: 1.45 / 1.32 / 1.18
+            CPU usage from 301234ms to 1234ms ago:
+              14% 1234/com.google.android.youtube.tv: 9.2% user + 4.8% kernel
+              1.5% 2345/com.google.android.youtube.tv:media: 1.0% user + 0.5% kernel
+              +5.2% 567/system_server: 3.1% user + 2.1% kernel
+              0% 456/adbd: 0% user + 0% kernel
+            21% TOTAL: 13% user + 7.4% kernel + 0.6% iowait
+        """.trimIndent())
+        assertEquals(2, cpuInfo.size)
+        assertEquals("com.google.android.youtube.tv", cpuInfo[0].name)
+        assertEquals(15.5, cpuInfo[0].percent, 0.01)
+        assertEquals(2, cpuInfo[0].processes)
+        assertEquals("system_server", cpuInfo[1].name)
+        assertEquals(5.2, cpuInfo[1].percent, 0.01)
+
+        val topRows = parseTopCpu("""
+            Tasks: 184 total, 1 running, 183 sleeping
+             PID USER   PR NI  VIRT  RES  SHR S[%CPU] %MEM   TIME+ ARGS
+            1234 u0_a55 20  0  1.2G 120M  45M S 12.5   5.8 1:23.45 com.google.android.youtube.tv
+             567 system 18 -2  1.8G 180M  60M S  3.2   8.7 5:12.10 system_server
+             999 shell  20  0   12M   4M   2M R  4.0   0.2 0:00.01 top
+        """.trimIndent())
+        assertEquals(2, topRows.size)
+        assertEquals("com.google.android.youtube.tv", topRows[0].name)
+        assertEquals(12.5, topRows[0].percent, 0.01)
+        assertEquals("system_server", topRows[1].name)
+    }
+
+    @Test fun parsesConnectedBluetoothDevicesAndAudioOutputAcrossAndroidVersions() {
+        val snapshot = parseConnectedDevices(
+            btBonded = """
+                Bonded devices:
+                  AA:BB:CC:DD:EE:01 [ LE ] JIO BLE Remote
+                  11:22:33:44:55:02 [BR/EDR] Mi 10
+                  77:88:99:AA:BB:03 [ DUAL ] Galaxy Buds Pro (E803)
+
+                Scan Mode: SCAN_MODE_CONNECTABLE
+            """.trimIndent(),
+            btConn = """
+                mInputDevices:
+                  AA:BB:CC:DD:EE:01: 2
+                mConnectionState: 0
+            """.trimIndent(),
+            audioMusic = """
+                - STREAM_MUSIC:
+                   Muted: false
+                   Devices: speaker
+            """.trimIndent(),
+            audioOut = ""
+        )
+        assertEquals("TV speakers", snapshot.audioOutput)
+        assertEquals(3, snapshot.bluetooth.size)
+        assertEquals("JIO BLE Remote", snapshot.bluetooth[0].name)
+        assertTrue(snapshot.bluetooth[0].connected)
+        assertEquals("BLE", snapshot.bluetooth[0].transport)
+        assertEquals(BluetoothDeviceKind.REMOTE, snapshot.bluetooth[0].kind)
+
+        val mi10 = snapshot.bluetooth.first { it.name == "Mi 10" }
+        assertFalse(mi10.connected)
+        assertEquals(BluetoothDeviceKind.GENERIC, mi10.kind)
+
+        val buds = snapshot.bluetooth.first { it.name.contains("Galaxy Buds") }
+        assertFalse(buds.connected)
+        assertEquals(BluetoothDeviceKind.AUDIO, buds.kind)
+
+        val arcAndA14 = parseConnectedDevices(
+            btBonded = """
+                Bonded devices:
+                  XX:XX:XX:XX:EE:FF [ LE ] Sony TV Remote (connected)
+            """.trimIndent(),
+            btConn = "",
+            audioMusic = "- STREAM_MUSIC:\n  Devices: hdmi_arc",
+            audioOut = ""
+        )
+        assertEquals("HDMI ARC", arcAndA14.audioOutput)
+        assertEquals(1, arcAndA14.bluetooth.size)
+        assertTrue(arcAndA14.bluetooth[0].connected)
+        assertEquals("Sony TV Remote", arcAndA14.bluetooth[0].name)
+
+        val btAudio = parseConnectedDevices(
+            btBonded = "",
+            btConn = "",
+            audioMusic = "- STREAM_MUSIC:\n  Devices: bt_a2dp, speaker",
+            audioOut = ""
+        )
+        assertEquals("Bluetooth audio", btAudio.audioOutput)
+    }
 }

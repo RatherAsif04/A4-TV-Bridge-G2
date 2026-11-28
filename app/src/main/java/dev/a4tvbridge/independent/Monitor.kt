@@ -9,11 +9,13 @@ import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.RippleDrawable
 import android.os.SystemClock
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -59,9 +61,13 @@ internal fun BridgeActivity.deviceInfo() {
     var selection = MonitorPage.OVERVIEW
     var lastReading: DeviceReading? = null
     var timestamp = 0L
+    var cpuProcessesAt = 0L
     var processesAt = 0L
     var networkAt = 0L
+    var connectedAt = 0L
+    var readingCpu: CpuBreakdown? = null
     var readingMemory: MemoryBreakdown? = null
+    var connectedInfo: ConnectedDevicesSnapshot? = null
     var wifiInfo: WifiSnapshot? = null
     var dnsLabel = "Auto"
     var appTraffic: List<AppTraffic>? = null
@@ -83,7 +89,7 @@ internal fun BridgeActivity.deviceInfo() {
             } else null
             tab.isSelected = active
         }
-        reportViews.show(lastReading, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
+        reportViews.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
     }
 
     for (tab in MonitorPage.entries) {
@@ -127,13 +133,24 @@ internal fun BridgeActivity.deviceInfo() {
                 else -> "Automatic"
             }
         }
-        reportViews?.show(sample, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
-        if (selection == MonitorPage.MEMORY && now - processesAt >= 5000) {
+        reportViews?.show(sample, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        if (connectedInfo == null || (selection == MonitorPage.OVERVIEW && now - connectedAt >= 15_000)) {
+            connectedAt = now
+            connectedInfo = withContext(Dispatchers.IO) { runCatching { tv.connectedDevices() }.getOrNull() }
+                ?: connectedInfo ?: ConnectedDevicesSnapshot(emptyList(), "Unavailable")
+            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        }
+        if (selection == MonitorPage.CPU && (readingCpu == null || now - cpuProcessesAt >= 5000)) {
+            cpuProcessesAt = now
+            readingCpu = withContext(Dispatchers.IO) { tv.processCpu() }
+            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
+        }
+        if (selection == MonitorPage.MEMORY && (readingMemory == null || now - processesAt >= 5000)) {
             processesAt = now
             readingMemory = withContext(Dispatchers.IO) { tv.processMemory() }
-            reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
+            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
         }
-        if (selection == MonitorPage.NETWORK && now - networkAt >= 5000) {
+        if (selection == MonitorPage.NETWORK && (appTraffic == null || now - networkAt >= 5000)) {
             networkAt = now
             val (wifi, traffic, dns) = withContext(Dispatchers.IO) {
                 Triple(
@@ -149,13 +166,23 @@ internal fun BridgeActivity.deviceInfo() {
                 dns.getOrElse(0) { "" }.equals("off", true) -> "Off"
                 else -> "Automatic"
             }
-            reportViews?.show(lastReading, points, coreValues, readingMemory, wifiInfo, dnsLabel, appTraffic)
+            reportViews?.show(lastReading, points, coreValues, readingCpu, readingMemory, connectedInfo, wifiInfo, dnsLabel, appTraffic)
         }
     }
 }
 
 private class MonitorViews(
-    val show: (DeviceReading?, Collection<MonitorPoint>, List<Pair<String, Int?>>, MemoryBreakdown?, WifiSnapshot?, String, List<AppTraffic>?) -> Unit
+    val show: (
+        DeviceReading?,
+        Collection<MonitorPoint>,
+        List<Pair<String, Int?>>,
+        CpuBreakdown?,
+        MemoryBreakdown?,
+        ConnectedDevicesSnapshot?,
+        WifiSnapshot?,
+        String,
+        List<AppTraffic>?
+    ) -> Unit
 )
 
 private fun BridgeActivity.buildReport(
@@ -244,10 +271,36 @@ private fun BridgeActivity.buildReport(
         pane.addView(linkCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
     }
 
+    // Connected Devices card on Overview (A4 TV Bridge native style)
+    val connectedCard = outlinedCard(field, radius = 20, stroke = 1)
+    val connectedSummaryPill = text("Reading…", 11, muted, bold = true).apply {
+        background = card(surfaceElevated, 10, outlined = true)
+        setPadding(px(10), px(4), px(10), px(4))
+    }
+    val connectedBody = column()
+    if (section == MonitorPage.OVERVIEW) {
+        val header = row().apply { setPadding(0, 0, 0, px(6)) }
+        header.addView(
+            text("CONNECTED DEVICES", 11, dim, bold = true).apply { letterSpacing = 0.08f },
+            LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f)
+        )
+        header.addView(connectedSummaryPill)
+        connectedCard.addView(header)
+        connectedCard.addView(connectedBody)
+        pane.addView(connectedCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+            bottomMargin = px(14)
+        })
+    }
+
     val subheading = outlinedCard(field, radius = 20, stroke = 1)
     val extra = text("", 13, muted)
     val processes = column()
-    if (section == MonitorPage.MEMORY) {
+    if (section == MonitorPage.CPU) {
+        pane.addView(subheading)
+        subheading.addView(text("CPU BY PROCESS GROUP", 11, dim, bold = true).apply { letterSpacing = 0.08f })
+        subheading.addView(extra.apply { setPadding(0, px(6), 0, px(6)) })
+        subheading.addView(processes)
+    } else if (section == MonitorPage.MEMORY) {
         pane.addView(subheading)
         subheading.addView(text("MEMORY BY PROCESS GROUP", 11, dim, bold = true).apply { letterSpacing = 0.08f })
         subheading.addView(extra.apply { setPadding(0, px(6), 0, px(6)) })
@@ -279,9 +332,181 @@ private fun BridgeActivity.buildReport(
         host.addView(line, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
     }
 
+    var lastCpuList: CpuBreakdown? = null
     var lastList: MemoryBreakdown? = null
     var lastTraffic: List<AppTraffic>? = null
-    return MonitorViews { reading, series, cores, memory, wifi, dns, trafficRows ->
+    var lastConnected: ConnectedDevicesSnapshot? = null
+    var connectedRendered = false
+    var showAllBluetooth = false
+
+    fun renderConnectedDevices(snapshot: ConnectedDevicesSnapshot?) {
+        connectedBody.removeAllViews()
+        val btList = snapshot?.bluetooth.orEmpty()
+        val connectedCount = btList.count { it.connected }
+        when {
+            snapshot == null -> {
+                connectedSummaryPill.text = "Reading…"
+                connectedSummaryPill.setTextColor(muted)
+                connectedSummaryPill.background = card(surfaceElevated, 10, outlined = true)
+            }
+            connectedCount > 0 -> {
+                connectedSummaryPill.text = "$connectedCount connected · ${btList.size} paired"
+                connectedSummaryPill.setTextColor(successInk)
+                connectedSummaryPill.background = card(greenBg, 10, outlined = true).apply {
+                    setStroke(px(1), greenStroke)
+                }
+            }
+            btList.isNotEmpty() -> {
+                connectedSummaryPill.text = "${btList.size} paired"
+                connectedSummaryPill.setTextColor(accent)
+                connectedSummaryPill.background = card(tint, 10, outlined = false)
+            }
+            else -> {
+                connectedSummaryPill.text = "None paired"
+                connectedSummaryPill.setTextColor(muted)
+                connectedSummaryPill.background = card(surfaceElevated, 10, outlined = true)
+            }
+        }
+
+        // Bluetooth subsection
+        connectedBody.addView(text("BLUETOOTH", 11, accent, bold = true).apply {
+            letterSpacing = 0.08f
+            setPadding(0, px(8), 0, px(6))
+        })
+
+        when {
+            snapshot == null -> {
+                connectedBody.addView(text("Reading paired Bluetooth devices…", 13, muted).apply {
+                    setPadding(0, px(4), 0, px(10))
+                })
+            }
+            btList.isEmpty() -> {
+                connectedBody.addView(text("No paired Bluetooth devices found.", 13, muted).apply {
+                    setPadding(0, px(4), 0, px(10))
+                })
+            }
+            else -> {
+                val visible = if (showAllBluetooth) btList else btList.take(3)
+                visible.forEachIndexed { idx, dev ->
+                    if (idx > 0) connectedBody.addView(rule())
+                    val itemRow = row().apply {
+                        minimumHeight = px(52)
+                        setPadding(0, px(8), 0, px(8))
+                    }
+                    val iconMark = when (dev.kind) {
+                        BluetoothDeviceKind.REMOTE -> Mark.REMOTE
+                        BluetoothDeviceKind.AUDIO -> Mark.HEADPHONES
+                        BluetoothDeviceKind.GENERIC -> Mark.BLUETOOTH
+                    }
+                    val badge = FrameLayout(this).apply {
+                        background = rounded(if (dev.connected) greenBg else tint, 11)
+                        addView(
+                            Glyph(this@buildReport, iconMark, if (dev.connected) successInk else accent, 18).apply {
+                                contentDescription = dev.name
+                            },
+                            FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER)
+                        )
+                    }
+                    itemRow.addView(badge, LinearLayout.LayoutParams(px(36), px(36)).apply {
+                        rightMargin = px(12)
+                    })
+
+                    val infoCol = column().apply {
+                        addView(text(dev.name, 14, ink, bold = true).apply {
+                            maxLines = 1
+                            ellipsize = TextUtils.TruncateAt.END
+                        })
+                        addView(text(dev.transport, 11, muted).apply {
+                            typeface = monoTypeface
+                            setPadding(0, px(1), 0, 0)
+                        })
+                    }
+                    itemRow.addView(infoCol, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
+                        rightMargin = px(8)
+                    })
+
+                    val statusBadge = text(
+                        if (dev.connected) "Connected" else "Paired",
+                        11,
+                        if (dev.connected) successInk else muted,
+                        bold = true
+                    ).apply {
+                        background = if (dev.connected) {
+                            card(greenBg, 10, outlined = true).apply { setStroke(px(1), greenStroke) }
+                        } else {
+                            card(surfaceElevated, 10, outlined = true)
+                        }
+                        setPadding(px(10), px(5), px(10), px(5))
+                    }
+                    itemRow.addView(statusBadge)
+                    connectedBody.addView(itemRow)
+                }
+
+                if (btList.size > 3) {
+                    connectedBody.addView(rule())
+                    val toggle = text(
+                        if (showAllBluetooth) "Show less" else "Show all ${btList.size} devices",
+                        13,
+                        accent,
+                        bold = true
+                    ).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                        minHeight = px(48)
+                        minimumHeight = px(48)
+                        setPadding(px(4), px(8), px(4), px(8))
+                        background = interactiveBackground(rounded(Color.TRANSPARENT, 12), radius = 12)
+                        isClickable = true
+                        isFocusable = true
+                        setOnClickListener {
+                            showAllBluetooth = !showAllBluetooth
+                            renderConnectedDevices(lastConnected)
+                        }
+                    }
+                    connectedBody.addView(toggle, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+                }
+            }
+        }
+
+        // Audio output subsection
+        connectedBody.addView(rule(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(1)).apply {
+            topMargin = px(4)
+            bottomMargin = px(6)
+        })
+        connectedBody.addView(text("AUDIO OUTPUT", 11, accent, bold = true).apply {
+            letterSpacing = 0.08f
+            setPadding(0, px(4), 0, px(6))
+        })
+
+        val audioRow = row().apply {
+            minimumHeight = px(48)
+            setPadding(0, px(6), 0, px(4))
+        }
+        val speakerBadge = FrameLayout(this).apply {
+            background = rounded(tint, 11)
+            addView(
+                Glyph(this@buildReport, Mark.SPEAKER, accent, 18).apply {
+                    contentDescription = "Sound output"
+                },
+                FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER)
+            )
+        }
+        audioRow.addView(speakerBadge, LinearLayout.LayoutParams(px(36), px(36)).apply {
+            rightMargin = px(12)
+        })
+        audioRow.addView(
+            text("Sound output", 14, ink, bold = true),
+            LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { rightMargin = px(8) }
+        )
+        val audioPill = text(snapshot?.audioOutput ?: "Reading…", 12, accent, bold = true).apply {
+            typeface = monoTypeface
+            background = card(tint, 10, outlined = false)
+            setPadding(px(10), px(5), px(10), px(5))
+        }
+        audioRow.addView(audioPill)
+        connectedBody.addView(audioRow)
+    }
+
+    return MonitorViews { reading, series, cores, cpu, memory, connected, wifi, dns, trafficRows ->
         val point = series.lastOrNull()
         if (rates.isNotEmpty()) {
             rates[0].text = point?.incoming?.let { "${formatBytes(it)}/s" } ?: "—"
@@ -307,6 +532,15 @@ private fun BridgeActivity.buildReport(
             appendLine("Storage: ${formatBytes(diskUsed)} / ${formatBytes(reading?.diskTotal)} (${percent(reading?.diskUsage)})")
             if (linkDesc.isNotBlank()) appendLine("Link: $linkDesc")
             appendLine("Private DNS: $dns")
+            if (connected != null) {
+                appendLine("Audio output: ${connected.audioOutput}")
+                if (connected.bluetooth.isNotEmpty()) {
+                    val names = connected.bluetooth.joinToString(", ") { dev ->
+                        "${dev.name} (${if (dev.connected) "Connected" else "Paired"})"
+                    }
+                    appendLine("Bluetooth: $names")
+                }
+            }
         }.trim())
 
         when (section) {
@@ -314,8 +548,13 @@ private fun BridgeActivity.buildReport(
                 gauges[0].value = point?.cpu
                 gauges[1].value = reading?.ramUsage
                 gauges[2].value = reading?.diskUsage
-                chart.update(traffic, listOf(0xFF38BDF8.toInt(), green), null)
+                chart.update(traffic, listOf(accent, green), null)
                 facts.visibility = View.GONE
+                if (!connectedRendered || connected != lastConnected) {
+                    connectedRendered = true
+                    lastConnected = connected
+                    renderConnectedDevices(connected)
+                }
                 extra.text = buildString {
                     append("${tv.model}  ·  Android ${tv.androidVersion}\n")
                     append("Address  ${tv.address.host}  ·  Uptime $uptime")
@@ -326,10 +565,50 @@ private fun BridgeActivity.buildReport(
             MonitorPage.CPU -> {
                 metric.text = percent(point?.cpu)
                 detail.text = if (cores.isEmpty()) "Processor" else "${cores.size} CPU cores"
-                chart.update(listOf(series.map { it.cpu?.toDouble() }), listOf(0xFF38BDF8.toInt()), 100.0)
+                chart.update(listOf(series.map { it.cpu?.toDouble() }), listOf(accent), 100.0)
                 facts.text = cores.take(8).mapIndexed { index, (_, value) ->
                     "Core ${index + 1}  ${percent(value)}"
                 }.chunked(2).joinToString("\n") { it.joinToString("       ") }
+                extra.text = when {
+                    cpu == null -> "Reading CPU by process…"
+                    cpu.rows.isEmpty() -> "Process CPU usage is unavailable."
+                    cpu.method == "cpuinfo" -> "CPU utilization by process group from Android."
+                    else -> "Live process CPU snapshot (top) from Android."
+                }
+                if (cpu != lastCpuList) {
+                    lastCpuList = cpu
+                    processes.removeAllViews()
+                    val topRows = cpu?.rows.orEmpty().take(12)
+                    val maxPct = topRows.maxOfOrNull { it.percent }?.coerceAtLeast(1.0) ?: 1.0
+                    for ((name, pct, count) in topRows) {
+                        processes.addView(rule())
+                        val item = column().apply { setPadding(0, px(8), 0, px(8)) }
+                        val line = row().apply { minimumHeight = px(40) }
+                        val process = column().apply {
+                            addView(text(displayName(name), 14, bold = true))
+                            addView(text("$count process${if (count == 1) "" else "es"}", 11, muted))
+                        }
+                        line.addView(process, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+                        val pctLabel = if (pct >= 10.0) "${pct.toInt()}%" else String.format(Locale.US, "%.1f%%", pct)
+                        line.addView(text(pctLabel, 15, bold = true).apply { typeface = monoTypeface })
+                        item.addView(line)
+
+                        val ratio = (pct / maxPct).toFloat().coerceIn(0.05f, 1f)
+                        val track = FrameLayout(this).apply {
+                            background = rounded(edge, 3)
+                            val fill = View(this@buildReport).apply { background = rounded(accent, 3) }
+                            addView(fill, FrameLayout.LayoutParams(0, px(5)))
+                            post {
+                                val targetW = (width * ratio).toInt().coerceAtLeast(px(10))
+                                fill.layoutParams = FrameLayout.LayoutParams(targetW, px(5))
+                            }
+                        }
+                        item.addView(track, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(5)).apply {
+                            topMargin = px(6)
+                        })
+                        processes.addView(item)
+                    }
+                }
             }
             MonitorPage.MEMORY -> {
                 metric.text = percent(reading?.ramUsage)
@@ -362,7 +641,7 @@ private fun BridgeActivity.buildReport(
                 }
             }
             MonitorPage.NETWORK -> {
-                chart.update(traffic, listOf(0xFF38BDF8.toInt(), green), null)
+                chart.update(traffic, listOf(accent, green), null)
                 val iface = if (wifi?.transport.equals("Ethernet", true)) "eth0" else "wlan0"
                 rangeRight.text = "Now ($iface)"
 
@@ -397,7 +676,7 @@ private fun BridgeActivity.buildReport(
                     processes.removeAllViews()
                     val topRows = trafficRows.orEmpty().take(12)
                     val maxBytes = topRows.maxOfOrNull { it.totalBytes }?.coerceAtLeast(1L) ?: 1L
-                    val barPalette = listOf(0xFF38BDF8.toInt(), purple, green, orange)
+                    val barPalette = listOf(accent, purple, green, orange)
                     topRows.forEachIndexed { idx, entry ->
                         val item = column().apply { setPadding(0, px(8), 0, px(8)) }
                         val headerLine = row()

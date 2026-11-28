@@ -435,6 +435,44 @@ internal class TvConnection private constructor(
         return MemoryBreakdown("RSS estimate", parseProcessRss(command("ps -A -o RSS,NAME").text))
     }
 
+    fun processCpu(): CpuBreakdown {
+        val cpuInfo = parseProcessCpuInfo(command("dumpsys cpuinfo 2>/dev/null || true").text)
+        if (cpuInfo.isNotEmpty()) return CpuBreakdown("cpuinfo", cpuInfo)
+        val topRaw = command("top -b -n 1 -o %CPU,ARGS 2>/dev/null || top -b -n 1 2>/dev/null || true").text
+        return CpuBreakdown("top", parseTopCpu(topRaw))
+    }
+
+    fun connectedDevices(): ConnectedDevicesSnapshot {
+        val raw = command("""
+            echo __bt_bonded
+            (dumpsys bluetooth_manager 2>/dev/null | grep -A 35 'Bonded devices:') 2>/dev/null || true
+            echo __bt_conn
+            (dumpsys bluetooth_manager 2>/dev/null | grep -A 12 'mInputDevices') 2>/dev/null || true
+            dumpsys bluetooth_manager 2>/dev/null | grep -iE 'Connected devices|Active device|STATE_CONNECTED|state=Connected|mConnectionState|\(connected\)' | head -n 60 || true
+            echo __audio_music
+            (dumpsys audio 2>/dev/null | grep -A 14 'STREAM_MUSIC:') 2>/dev/null || true
+            echo __audio_out
+            dumpsys audio 2>/dev/null | grep -iE 'Devices:|mActiveDevice|AUDIO_DEVICE_OUT_' | head -n 40 || true
+        """.trimIndent()).text
+
+        val sections = mutableMapOf<String, StringBuilder>()
+        var current = ""
+        for (line in raw.lineSequence()) {
+            val trimmed = line.trim()
+            if (trimmed in setOf("__bt_bonded", "__bt_conn", "__audio_music", "__audio_out")) {
+                current = trimmed
+            } else if (current.isNotEmpty()) {
+                sections.getOrPut(current) { StringBuilder() }.appendLine(line)
+            }
+        }
+        return parseConnectedDevices(
+            btBonded = sections["__bt_bonded"]?.toString().orEmpty(),
+            btConn = sections["__bt_conn"]?.toString().orEmpty(),
+            audioMusic = sections["__audio_music"]?.toString().orEmpty(),
+            audioOut = sections["__audio_out"]?.toString().orEmpty()
+        )
+    }
+
     fun wifiSummary(): WifiSnapshot {
         val raw = command("(dumpsys wifi 2>/dev/null | grep -iE 'mWifiInfo|Link speed|linkSpeed|Frequency|freq|RSSI' | head -n 12; ip link show eth0 2>/dev/null || true)").text
         return parseWifiSnapshot(raw)

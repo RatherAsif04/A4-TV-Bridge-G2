@@ -15,7 +15,8 @@ import android.widget.Button
 internal enum class Mark {
     TV, CLEAN, ADD, DOCUMENT, MORE, EXTERNAL, DASHBOARD, APPS, CONTROL, REMOTE, MIRROR, SHELL,
     CARE, FOLDER, UPLOAD, DOWNLOAD, CAMERA, VIDEO, INFO, SETTINGS, SHIELD, HOME, RESTORE, CHECK, STORAGE,
-    BACK, CLOSE, KEYBOARD, MENU, MUTE, PLAY, PREVIOUS, NEXT, MINUS, UP, LEFT, RIGHT, DOWN
+    BACK, CLOSE, KEYBOARD, MENU, MUTE, PLAY, PREVIOUS, NEXT, MINUS, UP, LEFT, RIGHT, DOWN,
+    BLUETOOTH, HEADPHONES, SPEAKER
 }
 
 internal class Glyph(activity: BridgeActivity, mark: Mark, color: Int, sizeDp: Int = 22) : View(activity) {
@@ -367,6 +368,26 @@ internal class BridgeIcon(private val mark: Mark, color: Int, private val intrin
                 canvas.rotate(rotation, 12f, 12f)
                 shape(stroke) { moveTo(9f, 6f); lineTo(15f, 12f); lineTo(9f, 18f) }
                 canvas.restore()
+            }
+            Mark.BLUETOOTH -> shape(stroke) {
+                moveTo(6.5f, 7.2f)
+                lineTo(17.2f, 16.5f)
+                lineTo(12f, 21f)
+                lineTo(12f, 3f)
+                lineTo(17.2f, 7.5f)
+                lineTo(6.5f, 16.8f)
+            }
+            Mark.HEADPHONES -> {
+                arc(12f, 13f, 8.2f, 180f, 180f)
+                box(3f, 12.5f, 7.2f, 20f, 1.8f)
+                box(16.8f, 12.5f, 21f, 20f, 1.8f)
+            }
+            Mark.SPEAKER -> shape {
+                fillType = Path.FillType.EVEN_ODD
+                addRoundRect(5.2f, 2.5f, 18.8f, 21.5f, 2.4f, 2.4f, Path.Direction.CW)
+                addCircle(12f, 7.4f, 1.55f, Path.Direction.CW)
+                addCircle(12f, 15.2f, 3.35f, Path.Direction.CW)
+                addCircle(12f, 15.2f, 1.45f, Path.Direction.CW)
             }
         }
     }
