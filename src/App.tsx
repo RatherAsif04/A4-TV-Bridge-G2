@@ -139,7 +139,7 @@ export default function App() {
                   Interactive APK Fix Preview
                 </h1>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                  <span>RatherAsif04/A4-TV-Bridge-G2</span>
+                  <span>RatherAsif04/A4-TV-Bridge</span>
                   <span aria-hidden="true">·</span>
                   <span>6 Theme Fixes</span>
                   <span aria-hidden="true">·</span>

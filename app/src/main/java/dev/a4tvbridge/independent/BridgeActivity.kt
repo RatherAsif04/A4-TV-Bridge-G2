@@ -36,7 +36,7 @@ internal enum class Panel {
     DASHBOARD, LIBRARY, APPS, FILES, SHELL, CARE, CLEAN, CHECK, RESTORE, SPACE, SEND,
     REMOTE, MIRROR, INFO, INSTALL, APPEARANCE, HOME
 }
-internal val releaseRoot = "https://github.com/RatherAsif04/A4-TV-Bridge-G2"
+internal val releaseRoot = "https://github.com/RatherAsif04/A4-TV-Bridge"
 
 class BridgeActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

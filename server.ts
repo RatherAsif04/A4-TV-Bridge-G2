@@ -54,7 +54,7 @@ const ROLE_CONFIGS: Record<RoleId, RoleConfig> = {
     defaultModel: 'gemini-4-hydrogen',
     thinkingLevel: ThinkingLevel.HIGH,
     systemInstruction: [
-      'You are a senior Android Kotlin & Gradle engineer specializing in the A4 TV Bridge codebase (RatherAsif04/A4-TV-Bridge-G2).',
+      'You are a senior Android Kotlin & Gradle engineer specializing in the A4 TV Bridge codebase (RatherAsif04/A4-TV-Bridge).',
       'Help with Kotlin Views UI, Dark/Light theme styling, kadb (2.1.1) ADB protocol code, Android SDK 36 / AGP 9.1.1 / Gradle 9.3.1 configuration, Robolectric unit tests, and PKCS12 (.p12) / JKS APK signing in GitHub Actions.',
       'Be accurate, concise, and avoid hallucinating unavailable APIs or deprecated flags.',
     ].join(' '),

@@ -142,7 +142,7 @@ export function exportAuditSummaryPdf(issues: AuditIssue[], patches: typeof FIXE
   doc.setFontSize(9.5);
   doc.setTextColor(70, 84, 105);
   doc.text(
-    sanitizePdfText(`Repository: RatherAsif04/A4-TV-Bridge-G2  |  Generated: ${generatedAt}`),
+    sanitizePdfText(`Repository: RatherAsif04/A4-TV-Bridge  |  Generated: ${generatedAt}`),
     margin,
     y
   );

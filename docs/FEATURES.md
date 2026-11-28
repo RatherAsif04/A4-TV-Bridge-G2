@@ -115,7 +115,7 @@ Before presenting or disabling any package, `CleanupProtection` probes the live 
 - **ADB Shell Terminal**: Run any non-interactive shell command on your connected TV with live output, copyable console log, and exit code indicator.
 - **Appearance System**: Supports **System Default**, **Clean Light Mode**, and **True Black Dark Mode** with properly themed dialogs, inputs, dropdowns, and edge-to-edge bottom sheets.
 - **Automatic In-App GitHub Releases Updater (`AppUpdater.kt`)**:
-  - Checks `https://api.github.com/repos/RatherAsif04/A4-TV-Bridge-G2/releases/latest` silently on startup (throttled to every 6 hours) and manually via **About → Check for updates**.
+  - Checks `https://api.github.com/repos/RatherAsif04/A4-TV-Bridge/releases/latest` silently on startup (throttled to every 6 hours) and manually via **About → Check for updates**.
   - Compares semantic version tags (`v1.4.1`, etc.) against the installed `versionName`.
   - Streams the release APK with a live progress bar in an in-app bottom sheet.
   - Verifies the downloaded APK's **SHA-256 hash** (against `SHA256SUMS.txt` or GitHub asset `digest`) and **Android package ID** (`dev.a4tvbridge.app`) before launching Android's package installer via `FileProvider`.

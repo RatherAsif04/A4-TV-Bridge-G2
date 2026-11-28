@@ -23,7 +23,7 @@ Use **A4 TV Bridge** only with TVs you own or administer. ADB grants Android she
 
 Official releases use Android package ID **`dev.a4tvbridge.app`**.
 
-1. Download **`A4-TV-Bridge-1.4.2-release.apk`** and **`SHA256SUMS.txt`** from the same [GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest).
+1. Download **`A4-TV-Bridge-1.4.2-release.apk`** and **`SHA256SUMS.txt`** from the same [GitHub Release](https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest).
 2. Verify the file checksum and inspect the APK signing certificate:
 
 ```sh
@@ -37,7 +37,7 @@ When upgrading an existing installation, Android also enforces that the new rele
 
 ## Reporting a Vulnerability
 
-If GitHub displays **Security → Report a vulnerability** on `RatherAsif04/A4-TV-Bridge-G2`, please use it to submit a private disclosure. Otherwise, send a private message to the developer on X: [@ratherasif04](https://x.com/ratherasif04).
+If GitHub displays **Security → Report a vulnerability** on `RatherAsif04/A4-TV-Bridge`, please use it to submit a private disclosure. Otherwise, send a private message to the developer on X: [@ratherasif04](https://x.com/ratherasif04).
 
 Please include:
 - A4 TV Bridge version and build number (found in **About**)

@@ -8,14 +8,14 @@
   </p>
 
   <p>
-    <a href="https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest">
+    <a href="https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest">
       <img src="https://img.shields.io/badge/release-v1.4.2%20(Build%2013)-00587B?style=flat-square" alt="Release v1.4.2 Build 13" />
     </a>
     <img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-10B981?style=flat-square" alt="Android 8.0+" />
     <a href="LICENSE">
       <img src="https://img.shields.io/badge/license-MIT-38BDF8?style=flat-square" alt="MIT License" />
     </a>
-    <a href="https://github.com/RatherAsif04/A4-TV-Bridge-G2/actions">
+    <a href="https://github.com/RatherAsif04/A4-TV-Bridge/actions">
       <img src="https://img.shields.io/badge/CI-GitHub%20Actions-0F172A?style=flat-square" alt="GitHub Actions CI" />
     </a>
   </p>
@@ -126,7 +126,7 @@
 ### 9. ADB Shell Terminal, Themes & Automatic In-App Updates
 - **Interactive ADB Shell**: Run non-interactive shell commands on your TV with full stdout/stderr output, exit code badge, and anchored bottom dock.
 - **True Black Dark Mode & Clean Light Mode**: Instant theme switching (System / Light / Dark) with crisp contrast across dialogs, inputs, dropdowns, and bottom sheets.
-- **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge-G2` releases silently on startup (throttled to once every 6 hours) and on demand in **About → Check for updates**, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's package installer in one tap.
+- **Automatic In-App GitHub Releases Updater**: Checks `RatherAsif04/A4-TV-Bridge` releases silently on startup (throttled to once every 6 hours) and on demand in **About → Check for updates**, verifies APK SHA-256 and package ID (`dev.a4tvbridge.app`), shows live download progress, and launches Android's package installer in one tap.
 
 ---
 
@@ -134,7 +134,7 @@
 
 > See the complete step-by-step manual with troubleshooting in **[docs/USAGE.md](docs/USAGE.md)**.
 
-1. **Install the App**: Download `A4-TV-Bridge-1.4.2-release.apk` from the [Latest Release](https://github.com/RatherAsif04/A4-TV-Bridge-G2/releases/latest) on your Android phone or tablet (Android 8.0+) and install it.
+1. **Install the App**: Download `A4-TV-Bridge-1.4.2-release.apk` from the [Latest Release](https://github.com/RatherAsif04/A4-TV-Bridge/releases/latest) on your Android phone or tablet (Android 8.0+) and install it.
 2. **Enable Debugging on Your TV**:
    - Open **Settings → System → About** on your TV and click **Android TV OS build** 7 times to unlock Developer Options.
    - Open **Settings → System → Developer options** and turn on **Wireless debugging**, **Network debugging**, or **USB/ADB debugging**.

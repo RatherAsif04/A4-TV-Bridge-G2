@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-internal const val APP_GITHUB_REPO = "RatherAsif04/A4-TV-Bridge-G2"
+internal const val APP_GITHUB_REPO = "RatherAsif04/A4-TV-Bridge"
 private const val STARTUP_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L
 private const val KEY_LAST_UPDATE_CHECK = "update-last-check-ms"
 private const val KEY_DISMISSED_TAG = "update-dismissed-tag"

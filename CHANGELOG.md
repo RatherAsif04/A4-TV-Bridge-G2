@@ -20,7 +20,7 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ### Added
 - **Automatic In-App GitHub Releases Updater (`AppUpdater.kt`)**:
-  - Checks `RatherAsif04/A4-TV-Bridge-G2` latest GitHub Release silently on startup (6-hour throttle) and manually via **About → Check for updates**.
+  - Checks `RatherAsif04/A4-TV-Bridge` latest GitHub Release silently on startup (6-hour throttle) and manually via **About → Check for updates**.
   - Compares semantic version tags, streams the release APK with a live progress bar, verifies **SHA-256** (`SHA256SUMS.txt` or GitHub `digest`) and **Android package ID** (`dev.a4tvbridge.app`), handles Android 8+ `REQUEST_INSTALL_PACKAGES` permission resume, and installs via `FileProvider`.
 - **CleanYourTV Auto-Cleanup Engine (`CleanupEngine.kt`)**:
   - Synced all **518 device profiles** (`profiles.json` + `profiles_meta.json`, commit `be60870`) from `Gathin23/cleanyourtv` (MIT).

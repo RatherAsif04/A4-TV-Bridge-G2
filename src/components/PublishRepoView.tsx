@@ -34,12 +34,12 @@ interface RepoSyncStatus {
 }
 
 const REPO_OWNER = 'RatherAsif04';
-const REPO_NAME = 'A4-TV-Bridge-G2';
+const REPO_NAME = 'A4-TV-Bridge';
 const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
 const REPO_URL = `https://github.com/${REPO_SLUG}`;
-const ZIP_URL = '/downloads/A4-TV-Bridge-G2-android.zip';
-const ZIP_FILENAME = 'A4-TV-Bridge-G2-android.zip';
-const ZIP_SHA256 = '3cdaf061d5d033f4ad8f1ae77cf557ba2a06a30fb0600c79deecbf6ddd5a4e5d';
+const ZIP_URL = '/downloads/A4-TV-Bridge-android.zip';
+const ZIP_FILENAME = 'A4-TV-Bridge-android.zip';
+const ZIP_SHA256 = '53df4454b25028c1a74f223615d59dbf727adb62c28663d921d4eca95bcc7687';
 
 const GH_CLI_SCRIPT = `mkdir ${REPO_NAME} && cd ${REPO_NAME}
 unzip ../Downloads/${ZIP_FILENAME}
