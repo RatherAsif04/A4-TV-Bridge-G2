@@ -386,7 +386,7 @@ class ParsersTest {
 
         val mi10 = snapshot.bluetooth.first { it.name == "Mi 10" }
         assertFalse(mi10.connected)
-        assertEquals(BluetoothDeviceKind.GENERIC, mi10.kind)
+        assertEquals(BluetoothDeviceKind.PHONE, mi10.kind)
 
         val buds = snapshot.bluetooth.first { it.name.contains("Galaxy Buds") }
         assertFalse(buds.connected)
@@ -413,5 +413,24 @@ class ParsersTest {
             audioOut = ""
         )
         assertEquals("Bluetooth audio", btAudio.audioOutput)
+    }
+
+    @Test fun classifiesConnectedDeviceCategoriesForDistinctIcons() {
+        assertEquals(BluetoothDeviceKind.TV, classifyBluetoothDevice("Sony BRAVIA 4K TV"))
+        assertEquals(BluetoothDeviceKind.TV, classifyBluetoothDevice("LG OLED C3"))
+        assertEquals(BluetoothDeviceKind.STREAMING_STICK, classifyBluetoothDevice("Fire TV Stick 4K"))
+        assertEquals(BluetoothDeviceKind.STREAMING_STICK, classifyBluetoothDevice("Chromecast with Google TV"))
+        assertEquals(BluetoothDeviceKind.STREAMING_STICK, classifyBluetoothDevice("Mi TV Stick"))
+        assertEquals(BluetoothDeviceKind.PHONE, classifyBluetoothDevice("Mi 10"))
+        assertEquals(BluetoothDeviceKind.PHONE, classifyBluetoothDevice("Pixel 9 Pro"))
+        assertEquals(BluetoothDeviceKind.PHONE, classifyBluetoothDevice("iPhone 16"))
+        assertEquals(BluetoothDeviceKind.REMOTE, classifyBluetoothDevice("Fire TV Remote"))
+        assertEquals(BluetoothDeviceKind.REMOTE, classifyBluetoothDevice("JIO BLE Remote"))
+        assertEquals(BluetoothDeviceKind.GAMEPAD, classifyBluetoothDevice("Xbox Wireless Controller"))
+        assertEquals(BluetoothDeviceKind.AUDIO, classifyBluetoothDevice("Galaxy Buds Pro (E803)"))
+        assertEquals(BluetoothDeviceKind.SPEAKER, classifyBluetoothDevice("JBL Bar 500 Soundbar"))
+        assertEquals(BluetoothDeviceKind.KEYBOARD, classifyBluetoothDevice("Logitech K400 Keyboard"))
+        assertEquals(BluetoothDeviceKind.LAPTOP, classifyBluetoothDevice("MacBook Pro"))
+        assertEquals(BluetoothDeviceKind.GENERIC, classifyBluetoothDevice("HC-05 Module"))
     }
 }

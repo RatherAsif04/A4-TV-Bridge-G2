@@ -272,7 +272,18 @@ private fun groupProcessCpu(entries: Sequence<Pair<String, Double>>): List<Proce
         ProcessCpu(group, rows.sumOf { it.second }, rows.size)
     }.sortedByDescending(ProcessCpu::percent)
 
-internal enum class BluetoothDeviceKind { REMOTE, AUDIO, GENERIC }
+internal enum class BluetoothDeviceKind(val label: String) {
+    REMOTE("Remote"),
+    GAMEPAD("Gamepad"),
+    KEYBOARD("Input"),
+    AUDIO("Audio"),
+    SPEAKER("Speaker"),
+    STREAMING_STICK("Streaming stick"),
+    TV("TV"),
+    PHONE("Phone"),
+    LAPTOP("Computer"),
+    GENERIC("Device")
+}
 
 internal data class BluetoothDeviceInfo(
     val name: String,
@@ -290,11 +301,31 @@ internal data class ConnectedDevicesSnapshot(
 internal fun classifyBluetoothDevice(name: String): BluetoothDeviceKind {
     val n = name.lowercase()
     return when {
-        listOf("remote", "rcu", "controller", "gamepad", "joystick", "airmouse", "air mouse")
-            .any { it in n } -> BluetoothDeviceKind.REMOTE
-        listOf("buds", "pods", "headphone", "headset", "earbud", "earphone", "airpod",
-            "soundbar", "speaker", "audio", "jbl", "bose", "beats", "wh-", "wf-", "sony xm", "anc")
+        listOf("remote", "rcu", "airmouse", "air mouse").any { it in n } -> BluetoothDeviceKind.REMOTE
+        listOf("gamepad", "joystick", "controller", "xbox", "dualsense", "dualshock",
+            "playstation", "nintendo", "joy-con", "8bitdo", "stadia")
+            .any { it in n } -> BluetoothDeviceKind.GAMEPAD
+        listOf("keyboard", "keypad", "mouse", "trackpad", "logitech k", "mx keys", "mx master")
+            .any { it in n } -> BluetoothDeviceKind.KEYBOARD
+        listOf("buds", "pods", "airpod", "headphone", "headset", "earbud", "earphone",
+            "wh-", "wf-", "beats", "anc")
             .any { it in n } -> BluetoothDeviceKind.AUDIO
+        listOf("soundbar", "speaker", "subwoofer", "jbl", "bose", "sonos", "homepod",
+            "echo dot", "echo studio", "nest audio", "marshall", "harman")
+            .any { it in n } -> BluetoothDeviceKind.SPEAKER
+        listOf("fire tv", "firestick", "fire stick", "chromecast", "streaming stick", "tv stick",
+            "mi stick", "mi box", "shield", "roku", "apple tv", "onn.", "onn 4k", "dongle",
+            "set-top", "set top", "xstream", "jiofiber")
+            .any { it in n } || Regex("""\bstb\b""").containsMatchIn(n) -> BluetoothDeviceKind.STREAMING_STICK
+        listOf("smart tv", "android tv", "google tv", "bravia", "oled", "qled", "mi tv",
+            "patchwall", "projector", "monitor", "display")
+            .any { it in n } || Regex("""\btv\b""").containsMatchIn(n) -> BluetoothDeviceKind.TV
+        listOf("macbook", "laptop", "thinkpad", "surface", "chromebook", "imac", "desktop",
+            "ultrabook", "zenbook")
+            .any { it in n } || Regex("""\b(pc|xps)\b""").containsMatchIn(n) -> BluetoothDeviceKind.LAPTOP
+        listOf("iphone", "phone", "pixel", "galaxy", "redmi", "poco", "oneplus", "oppo", "vivo",
+            "realme", "nothing", "moto", "xperia", "huawei", "honor", "ipad", "tablet", "samsung", "xiaomi")
+            .any { it in n } || Regex("""\bmi[\s-]?\d+""").containsMatchIn(n) -> BluetoothDeviceKind.PHONE
         else -> BluetoothDeviceKind.GENERIC
     }
 }

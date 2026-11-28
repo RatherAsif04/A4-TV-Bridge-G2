@@ -395,14 +395,21 @@ private fun BridgeActivity.buildReport(
                     }
                     val iconMark = when (dev.kind) {
                         BluetoothDeviceKind.REMOTE -> Mark.REMOTE
+                        BluetoothDeviceKind.GAMEPAD -> Mark.GAMEPAD
+                        BluetoothDeviceKind.KEYBOARD -> Mark.KEYBOARD
                         BluetoothDeviceKind.AUDIO -> Mark.HEADPHONES
+                        BluetoothDeviceKind.SPEAKER -> Mark.SPEAKER
+                        BluetoothDeviceKind.STREAMING_STICK -> Mark.STREAMING_STICK
+                        BluetoothDeviceKind.TV -> Mark.TV
+                        BluetoothDeviceKind.PHONE -> Mark.PHONE
+                        BluetoothDeviceKind.LAPTOP -> Mark.LAPTOP
                         BluetoothDeviceKind.GENERIC -> Mark.BLUETOOTH
                     }
                     val badge = FrameLayout(this).apply {
                         background = rounded(if (dev.connected) greenBg else tint, 11)
                         addView(
                             Glyph(this@buildReport, iconMark, if (dev.connected) successInk else accent, 18).apply {
-                                contentDescription = dev.name
+                                contentDescription = "${dev.name} (${dev.kind.label})"
                             },
                             FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER)
                         )
@@ -411,12 +418,17 @@ private fun BridgeActivity.buildReport(
                         rightMargin = px(12)
                     })
 
+                    val subtitleText = if (dev.kind == BluetoothDeviceKind.GENERIC) {
+                        dev.transport
+                    } else {
+                        "${dev.kind.label} · ${dev.transport}"
+                    }
                     val infoCol = column().apply {
                         addView(text(dev.name, 14, ink, bold = true).apply {
                             maxLines = 1
                             ellipsize = TextUtils.TruncateAt.END
                         })
-                        addView(text(dev.transport, 11, muted).apply {
+                        addView(text(subtitleText, 11, muted).apply {
                             typeface = monoTypeface
                             setPadding(0, px(1), 0, 0)
                         })
@@ -477,6 +489,12 @@ private fun BridgeActivity.buildReport(
             setPadding(0, px(4), 0, px(6))
         })
 
+        val audioLabel = snapshot?.audioOutput ?: "Reading…"
+        val audioMark = when {
+            audioLabel.contains("Bluetooth", true) || audioLabel.contains("Wired", true) -> Mark.HEADPHONES
+            audioLabel.contains("HDMI", true) -> Mark.HDMI
+            else -> Mark.SPEAKER
+        }
         val audioRow = row().apply {
             minimumHeight = px(48)
             setPadding(0, px(6), 0, px(4))
@@ -484,8 +502,8 @@ private fun BridgeActivity.buildReport(
         val speakerBadge = FrameLayout(this).apply {
             background = rounded(tint, 11)
             addView(
-                Glyph(this@buildReport, Mark.SPEAKER, accent, 18).apply {
-                    contentDescription = "Sound output"
+                Glyph(this@buildReport, audioMark, accent, 18).apply {
+                    contentDescription = "Sound output: $audioLabel"
                 },
                 FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER)
             )
@@ -497,7 +515,7 @@ private fun BridgeActivity.buildReport(
             text("Sound output", 14, ink, bold = true),
             LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { rightMargin = px(8) }
         )
-        val audioPill = text(snapshot?.audioOutput ?: "Reading…", 12, accent, bold = true).apply {
+        val audioPill = text(audioLabel, 12, accent, bold = true).apply {
             typeface = monoTypeface
             background = card(tint, 10, outlined = false)
             setPadding(px(10), px(5), px(10), px(5))

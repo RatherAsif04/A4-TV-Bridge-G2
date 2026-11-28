@@ -16,7 +16,7 @@ internal enum class Mark {
     TV, CLEAN, ADD, DOCUMENT, MORE, EXTERNAL, DASHBOARD, APPS, CONTROL, REMOTE, MIRROR, SHELL,
     CARE, FOLDER, UPLOAD, DOWNLOAD, CAMERA, VIDEO, INFO, SETTINGS, SHIELD, HOME, RESTORE, CHECK, STORAGE,
     BACK, CLOSE, KEYBOARD, MENU, MUTE, PLAY, PREVIOUS, NEXT, MINUS, UP, LEFT, RIGHT, DOWN,
-    BLUETOOTH, HEADPHONES, SPEAKER
+    BLUETOOTH, HEADPHONES, SPEAKER, PHONE, STREAMING_STICK, GAMEPAD, LAPTOP, HDMI
 }
 
 internal class Glyph(activity: BridgeActivity, mark: Mark, color: Int, sizeDp: Int = 22) : View(activity) {
@@ -388,6 +388,57 @@ internal class BridgeIcon(private val mark: Mark, color: Int, private val intrin
                 addCircle(12f, 7.4f, 1.55f, Path.Direction.CW)
                 addCircle(12f, 15.2f, 3.35f, Path.Direction.CW)
                 addCircle(12f, 15.2f, 1.45f, Path.Direction.CW)
+            }
+            Mark.PHONE -> {
+                box(6.2f, 2.2f, 17.8f, 21.8f, 2.2f, stroke)
+                line(10.2f, 5.2f, 13.8f, 5.2f)
+                dot(12f, 18.5f, 1.05f)
+            }
+            Mark.STREAMING_STICK -> {
+                box(9.5f, 2f, 14.5f, 5.5f, .6f)
+                box(7.2f, 5.5f, 16.8f, 18.2f, 2.2f, stroke)
+                dot(12f, 10.4f, 1.25f)
+                line(10f, 14.4f, 14f, 14.4f)
+                line(12f, 18.2f, 12f, 21.8f)
+            }
+            Mark.GAMEPAD -> {
+                shape(stroke) {
+                    moveTo(6.5f, 7f)
+                    lineTo(17.5f, 7f)
+                    quadTo(21.2f, 7f, 21.8f, 11.2f)
+                    lineTo(22.2f, 15.8f)
+                    quadTo(22.4f, 18.8f, 19.6f, 18.8f)
+                    quadTo(17.8f, 18.8f, 16.2f, 16.2f)
+                    lineTo(7.8f, 16.2f)
+                    quadTo(6.2f, 18.8f, 4.4f, 18.8f)
+                    quadTo(1.6f, 18.8f, 1.8f, 15.8f)
+                    lineTo(2.2f, 11.2f)
+                    quadTo(2.8f, 7f, 6.5f, 7f)
+                    close()
+                }
+                line(6.2f, 11.6f, 9.8f, 11.6f)
+                line(8f, 9.8f, 8f, 13.4f)
+                dot(16.8f, 10.6f, 1.05f)
+                dot(14.8f, 12.6f, 1.05f)
+            }
+            Mark.HDMI -> {
+                box(6.5f, 3f, 17.5f, 8f, .9f, stroke)
+                dot(10f, 5.5f, .75f)
+                dot(14f, 5.5f, .75f)
+                shape(stroke) {
+                    moveTo(5f, 8f)
+                    lineTo(19f, 8f)
+                    lineTo(19f, 13.5f)
+                    lineTo(15.5f, 17.5f)
+                    lineTo(8.5f, 17.5f)
+                    lineTo(5f, 13.5f)
+                    close()
+                }
+                line(12f, 17.5f, 12f, 21.5f)
+            }
+            Mark.LAPTOP -> {
+                box(4f, 4.5f, 20f, 16f, 1.5f, stroke)
+                line(2f, 19.2f, 22f, 19.2f)
             }
         }
     }
