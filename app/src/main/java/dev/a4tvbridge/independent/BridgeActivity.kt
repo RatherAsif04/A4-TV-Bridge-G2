@@ -1,7 +1,6 @@
 package dev.a4tvbridge.independent
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.content.res.ColorStateList
@@ -351,64 +350,97 @@ class BridgeActivity : Activity() {
         portHint: Int? = null,
         after: Panel = Panel.DASHBOARD
     ) {
-        val form = column().apply { setPadding(px(20), px(10), px(20), 0) }
-        val host = input("TV IP address", themed = true).apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
-            setSingleLine()
-            setText(hostHint ?: preferences.getString("host", ""))
-        }
-        val port = input(if (pair) "Wireless debugging port" else "Debugging port", themed = true).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(portHint?.toString() ?: if (pair) "" else "5555")
-        }
-        form.addView(host)
-        form.addView(port)
-        val pairingPort = input("Pairing port", themed = true).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(pairHint?.toString().orEmpty())
-        }
-        val pairingCode = input("Six-digit pairing code", themed = true).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
-        if (pair) {
-            form.addView(pairingPort)
-            form.addView(pairingCode)
-        }
-        val helper = if (pair) "On the TV, open Wireless debugging. Use the port on that page to connect, and the separate port and code from Pair device."
-            else "For most Android 9 TVs, use port 5555. Press Allow on the TV when asked."
-        form.addView(text(helper, 14, muted).apply { setPadding(0, px(8), 0, px(12)) })
-        val dialogue = AlertDialog.Builder(this, dialogTheme)
-            .setTitle(if (pair) "Pair with a TV" else "Connect to a TV")
-            .setView(ScrollView(this).apply {
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                addView(form)
-            })
-            .setNegativeButton("Cancel", null).setPositiveButton(if (pair) "Pair and connect" else "Connect", null).create()
-        styleDialog(dialogue)
-        dialogue.show()
-        dialogue.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val inputPort = port.text.toString().trim()
-            val fallback = inputPort.toIntOrNull()
-            if ((pair || inputPort.isNotEmpty()) && fallback !in 1..65535) {
-                port.error = "Enter the debugging port shown on the TV."
-                return@setOnClickListener
+        fun styledField(label: String, initial: String, inputTypeFlags: Int): Pair<LinearLayout, EditText> {
+            val box = column().apply {
+                addView(text(label.uppercase(), 10, dim, bold = true).apply {
+                    letterSpacing = 0.08f
+                    setPadding(px(2), 0, 0, px(5))
+                })
             }
-            val address = TvAddress.parse(host.text.toString(), fallback ?: 5555)
-            if (address == null) {
-                host.error = "Enter the TV’s IP address."
-                return@setOnClickListener
+            val edit = input(label).apply {
+                inputType = inputTypeFlags
+                setSingleLine()
+                setText(initial)
+                background = card(if (dark) 0xFF131D2B.toInt() else surface, 14, outlined = true)
+                setPadding(px(14), px(12), px(14), px(12))
             }
-            val code = pairingCode.text.toString().trim()
-            val temporaryPort = pairingPort.text.toString().toIntOrNull()
-            if (pair && (temporaryPort !in 1..65535 || temporaryPort == address.port)) {
-                pairingPort.error = "Enter the separate port shown with the six-digit code."
-                return@setOnClickListener
+            box.addView(edit, LinearLayout.LayoutParams(MATCH, WRAP))
+            return box to edit
+        }
+
+        showSheet(if (pair) "Pair with a TV" else "Connect to a TV") { popup, frame ->
+            val body = column()
+            val (hostBox, host) = styledField(
+                "TV IP address",
+                hostHint ?: preferences.getString("host", "").orEmpty(),
+                android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            )
+            val (portBox, port) = styledField(
+                if (pair) "Wireless debugging port" else "Debugging port",
+                portHint?.toString() ?: if (pair) "" else "5555",
+                android.text.InputType.TYPE_CLASS_NUMBER
+            )
+            body.addView(hostBox, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
+            body.addView(portBox, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
+
+            val (pairPortBox, pairingPort) = styledField(
+                "Pairing port",
+                pairHint?.toString().orEmpty(),
+                android.text.InputType.TYPE_CLASS_NUMBER
+            )
+            val (pairCodeBox, pairingCode) = styledField(
+                "Six-digit pairing code",
+                "",
+                android.text.InputType.TYPE_CLASS_NUMBER
+            )
+            if (pair) {
+                body.addView(pairPortBox, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
+                body.addView(pairCodeBox, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(10) })
             }
-            if (pair && !code.matches(Regex("[0-9]{6}"))) {
-                pairingCode.error = "Enter the six-digit code displayed on the TV."
-                return@setOnClickListener
+
+            val helper = if (pair) {
+                "On your TV, open Wireless debugging. Enter the main port to connect, plus the separate port and 6-digit code from Pair device."
+            } else {
+                "Most Android TV and Fire TV devices use port 5555. Press Allow on your TV when prompted."
             }
-            dialogue.dismiss()
-            connect(address, if (pair) temporaryPort else null, code, after)
+            val tipCard = text(helper, 12, muted).apply {
+                background = card(tint, 14, outlined = false).apply {
+                    setStroke(px(1), if (dark) 0xFF0284C7.toInt() else edge)
+                }
+                setLineSpacing(px(3).toFloat(), 1f)
+                setPadding(px(13), px(10), px(13), px(10))
+            }
+            body.addView(tipCard, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(14) })
+            attachSheetBody(frame, body)
+
+            val btnRow = row()
+            btnRow.addView(button("Cancel") { popup.dismiss() }, LinearLayout.LayoutParams(0, px(50), 1f))
+            btnRow.addView(button(if (pair) "Pair & Connect" else "Connect", emphasis = true) {
+                val inputPort = port.text.toString().trim()
+                val fallback = inputPort.toIntOrNull()
+                if ((pair || inputPort.isNotEmpty()) && fallback !in 1..65535) {
+                    port.error = "Enter the debugging port shown on the TV."
+                    return@button
+                }
+                val address = TvAddress.parse(host.text.toString(), fallback ?: 5555)
+                if (address == null) {
+                    host.error = "Enter the TV’s IP address."
+                    return@button
+                }
+                val code = pairingCode.text.toString().trim()
+                val temporaryPort = pairingPort.text.toString().toIntOrNull()
+                if (pair && (temporaryPort !in 1..65535 || temporaryPort == address.port)) {
+                    pairingPort.error = "Enter the separate port shown with the six-digit code."
+                    return@button
+                }
+                if (pair && !code.matches(Regex("[0-9]{6}"))) {
+                    pairingCode.error = "Enter the six-digit code displayed on the TV."
+                    return@button
+                }
+                popup.dismiss()
+                connect(address, if (pair) temporaryPort else null, code, after)
+            }, LinearLayout.LayoutParams(0, px(50), 1.35f).apply { marginStart = px(10) })
+            frame.addView(btnRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = px(4) })
         }
     }
 
@@ -735,40 +767,42 @@ class BridgeActivity : Activity() {
             .onFailure { report("This device could not open the link.") }
     }
 
-    private fun styleDialog(dialogue: AlertDialog) {
-        dialogue.setOnShowListener {
-            dialogue.window?.setBackgroundDrawable(
-                android.graphics.drawable.InsetDrawable(card(surface, 20, outlined = dark), px(16))
-            )
-            dialogue.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
-                isAllCaps = false
-                setTextColor(accent)
-            }
-            dialogue.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-                isAllCaps = false
-                setTextColor(muted)
-            }
-        }
-    }
-
     internal fun confirm(title: String, description: String, action: () -> Unit) {
-        val dialogue = AlertDialog.Builder(this, dialogTheme).setTitle(title).setMessage(description)
-            .setNegativeButton("Cancel", null).setPositiveButton("Confirm") { _, _ -> action() }.create()
-        styleDialog(dialogue)
-        dialogue.show()
+        showSheet(title, closeIcon = false) { popup, frame ->
+            val noteBox = text(description, 14, muted).apply {
+                background = card(if (dark) 0xFF131D2B.toInt() else surface, 16, outlined = true)
+                setLineSpacing(px(3).toFloat(), 1f)
+                setPadding(px(14), px(13), px(14), px(13))
+            }
+            frame.addView(noteBox, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(16) })
+            val btnRow = row()
+            btnRow.addView(button("Cancel") { popup.dismiss() }, LinearLayout.LayoutParams(0, px(50), 1f))
+            btnRow.addView(button("Confirm", emphasis = true) {
+                popup.dismiss()
+                action()
+            }, LinearLayout.LayoutParams(0, px(50), 1.25f).apply { marginStart = px(10) })
+            frame.addView(btnRow, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
     }
 
     internal fun ask(title: String, initial: String = "", action: (String) -> Unit) {
-        val value = input(title, themed = true).apply { setText(initial) }
-        val container = column().apply {
-            setPadding(px(20), px(8), px(20), px(4))
-            addView(value)
+        showSheet(title, closeIcon = false) { popup, frame ->
+            val value = input(title).apply {
+                setSingleLine()
+                setText(initial)
+                setSelection(text.length)
+                background = card(if (dark) 0xFF131D2B.toInt() else surface, 14, outlined = true)
+                setPadding(px(14), px(13), px(14), px(13))
+            }
+            frame.addView(value, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = px(16) })
+            val btnRow = row()
+            btnRow.addView(button("Cancel") { popup.dismiss() }, LinearLayout.LayoutParams(0, px(50), 1f))
+            btnRow.addView(button("Apply", emphasis = true) {
+                popup.dismiss()
+                action(value.text.toString())
+            }, LinearLayout.LayoutParams(0, px(50), 1.25f).apply { marginStart = px(10) })
+            frame.addView(btnRow, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        val dialogue = AlertDialog.Builder(this, dialogTheme).setTitle(title).setView(container)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("OK") { _, _ -> action(value.text.toString()) }.create()
-        styleDialog(dialogue)
-        dialogue.show()
     }
 
     internal fun heading(value: String, size: Int = 24) {
