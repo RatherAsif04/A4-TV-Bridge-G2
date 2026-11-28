@@ -96,6 +96,32 @@ class BridgeActivityTest {
         }
     }
 
+    @Test fun supportsAmoledBlackModeAndDynamicVersion144() {
+        assertEquals("1.4.4", BuildConfig.VERSION_NAME)
+        assertEquals(15, BuildConfig.VERSION_CODE)
+        val controller = Robolectric.buildActivity(BridgeActivity::class.java).setup()
+        controller.use {
+            val app = controller.get()
+            flatten(app.window.decorView).first { it.contentDescription == "Appearance" }.performClick()
+            val options = flatten(app.window.decorView).toList()
+            assertTrue(options.any { it.contentDescription == "AMOLED Black" })
+            options.first { it.contentDescription == "AMOLED Black" }.performClick()
+            assertEquals(0xFF000000.toInt(), app.surface)
+        }
+    }
+
+    @Test fun showsSavedTvsForOneTapReconnectOnWelcomeScreen() {
+        val controller = Robolectric.buildActivity(BridgeActivity::class.java)
+        controller.use {
+            val app = controller.get()
+            TvDirectory(app).remember(TvIdentity("Living Room TV", "14", "serial-123"), TvAddress("192.168.1.50", 5555))
+            controller.setup()
+            val texts = flatten(app.window.decorView).filterIsInstance<TextView>().map { it.text.toString() }
+            assertTrue("Living Room TV" in texts)
+            assertTrue(texts.any { "192.168.1.50:5555" in it })
+        }
+    }
+
     private fun flatten(node: View): Sequence<View> = sequence {
         yield(node)
         if (node is ViewGroup) {

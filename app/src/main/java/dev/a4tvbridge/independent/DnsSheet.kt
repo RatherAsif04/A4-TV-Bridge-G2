@@ -71,7 +71,7 @@ internal fun BridgeActivity.showDnsOptions() {
                     check(preferences.edit().putString(key, backup).commit()) { "Could not save the existing DNS settings." }
                 }
                 writeDns(listOf("hostname", hostname))
-            }) { report("Private DNS updated to $hostname.") }
+            }) { report("Private DNS updated to $hostname.", NoticeTone.SUCCESS) }
         }
     }
 
@@ -82,12 +82,12 @@ internal fun BridgeActivity.showDnsOptions() {
         val statusDot = View(this).apply { background = rounded(accent, 8) }
         val statusTitle = text("Reading current TV DNS…", 13, ink, bold = true)
         val statusHost = text("Private DNS over TLS", 11, muted).apply {
-            typeface = Typeface.MONOSPACE
+            typeface = monoTypeface
             setPadding(0, px(2), 0, 0)
         }
         val statusCard = row().apply {
             background = card(tint, 16, outlined = false).apply {
-                setStroke(px(1), if (dark) 0xFF0284C7.toInt() else edge)
+                setStroke(px(1), if (dark) accent else edge)
             }
             setPadding(px(14), px(11), px(14), px(11))
             addView(statusDot, LinearLayout.LayoutParams(px(8), px(8)).apply { marginEnd = px(10) })
@@ -112,11 +112,8 @@ internal fun BridgeActivity.showDnsOptions() {
                 setPadding(px(13), px(7), px(13), px(7))
             }
             val itemCard = row().apply {
-                background = RippleDrawable(
-                    ColorStateList.valueOf(ripple),
-                    card(if (dark) 0xFF131D2B.toInt() else surface, 16, outlined = true),
-                    null
-                )
+                background = interactiveBackground(card(surfaceElevated, 16, outlined = true), radius = 16)
+                minimumHeight = px(60)
                 setPadding(px(12), px(11), px(12), px(11))
                 isClickable = true
                 isFocusable = true
@@ -130,7 +127,7 @@ internal fun BridgeActivity.showDnsOptions() {
                 val copy = column().apply {
                     addView(text(preset.name, 15, bold = true))
                     addView(text(preset.hostname, 11, accent).apply {
-                        typeface = Typeface.MONOSPACE
+                        typeface = monoTypeface
                         setPadding(0, px(2), 0, 0)
                         isSingleLine = true
                         ellipsize = android.text.TextUtils.TruncateAt.END
@@ -163,7 +160,7 @@ internal fun BridgeActivity.showDnsOptions() {
             LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(6); bottomMargin = px(8) })
 
         val previous = preferences.getString(key, null)
-        val extraCard = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 16, stroke = 1).apply {
+        val extraCard = outlinedCard(surfaceSubtle, radius = 16, stroke = 1).apply {
             setPadding(0, px(4), 0, px(4))
         }
         val extraActions = mutableListOf<Triple<String, Int, () -> Unit>>(
@@ -173,21 +170,21 @@ internal fun BridgeActivity.showDnsOptions() {
             }
         )
         if (previous != null) {
-            extraActions += Triple("Restore previous DNS settings", if (dark) 0xFF6EE7B7.toInt() else green) {
+            extraActions += Triple("Restore previous DNS settings", successInk) {
                 popup.dismiss()
                 confirm("Restore prior DNS settings?", "The TV will return to the DNS settings saved before this change.") {
                     val stored = org.json.JSONArray(previous)
                     tvTask({
                         writeDns(listOf(stored.getString(0), stored.getString(1)))
                         preferences.edit().remove(key).apply()
-                    }) { report("Private DNS restored.") }
+                    }) { report("Private DNS restored.", NoticeTone.SUCCESS) }
                 }
             }
         }
-        extraActions += Triple("Turn off Private DNS", if (dark) 0xFFFB7185.toInt() else 0xFFE11D48.toInt()) {
+        extraActions += Triple("Turn off Private DNS", dangerInk) {
             popup.dismiss()
             confirm("Turn off Private DNS?", "This disables Private DNS on the TV and returns to standard network DNS.") {
-                tvTask({ writeDns(listOf("off", "")) }) { report("Private DNS turned off.") }
+                tvTask({ writeDns(listOf("off", "")) }) { report("Private DNS turned off.", NoticeTone.SUCCESS) }
             }
         }
 

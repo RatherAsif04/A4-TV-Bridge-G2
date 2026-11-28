@@ -1,31 +1,70 @@
 package dev.a4tvbridge.independent
 
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.RippleDrawable
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.View
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.TextView
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+private const val APPS_INITIAL_RENDER_LIMIT = 60
+
 internal fun BridgeActivity.fileManager() {
     val current = folder
-    heading("File Manager")
-    val title = if (current == TvPath.root) "TV storage" else "TV storage / ${current.removePrefix("/sdcard/").replace("/", " / ")}"
-    val place = outlinedCard()
-    place.addView(text(title, 16, bold = true))
-    val links = row()
-    if (current != TvPath.root) links.addView(fileLink("Parent") {
-        val parent = current.substringBeforeLast('/')
-        if (folders.getOrNull(folders.lastIndex - 1) == parent) onBackPressed() else visit(parent)
+    pageHeader("File Manager", "Browse TV storage, create folders, download, or upload files")
+    val title = if (current == TvPath.root) "TV storage (/sdcard)" else "TV storage / ${current.removePrefix("/sdcard/").replace("/", " / ")}"
+    val place = outlinedCard(field, radius = 18, stroke = 1)
+    place.addView(text("CURRENT PATH", 10, dim, bold = true).apply { letterSpacing = 0.08f })
+    place.addView(text(title, 14, ink, bold = true).apply {
+        typeface = monoTypeface
+        setPadding(0, px(4), 0, px(10))
     })
-    links.addView(fileLink("Go to") { ask("TV folder", current) { selected -> visit(selected) } })
-    links.addView(fileLink("Refresh", ::refresh))
-    links.addView(fileLink("New folder") { ask("Folder name") { name -> tvTask({ createFolder(current, name) }) { refresh() } } })
-    place.addView(links, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(6) })
-    content.addView(place, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(20) })
+
+    val actionChips = row()
+    fun addChip(label: String, accentStyle: Boolean = false, action: () -> Unit) {
+        val chip = text(label, 12, if (accentStyle) accent else ink, bold = true).apply {
+            background = interactiveBackground(
+                card(if (accentStyle) tint else surfaceElevated, 12, outlined = !accentStyle).apply {
+                    if (accentStyle) setStroke(px(1), if (dark) accentBright else edge)
+                },
+                radius = 12
+            )
+            minHeight = px(48)
+            minimumHeight = px(48)
+            gravity = Gravity.CENTER
+            setPadding(px(13), 0, px(13), 0)
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
+            setOnClickListener { action() }
+        }
+        actionChips.addView(chip, LinearLayout.LayoutParams(BridgeActivity.WRAP, px(48)).apply {
+            if (actionChips.childCount > 0) marginStart = px(8)
+        })
+    }
+    if (current != TvPath.root) addChip("Up", accentStyle = true) {
+        val parent = current.substringBeforeLast('/')
+        if (folders.getOrNull(folders.lastIndex - 1) == parent) handleBackNavigation() else visit(parent)
+    }
+    addChip("Send Files", accentStyle = true) { show(Panel.SEND) }
+    addChip("New folder") { ask("Folder name") { name -> tvTask({ createFolder(current, name) }) { refresh() } } }
+    addChip("Go to") { ask("TV folder", current) { selected -> visit(selected) } }
+    addChip("Refresh", action = ::refresh)
+
+    place.addView(HorizontalScrollView(this).apply {
+        isHorizontalScrollBarEnabled = false
+        addView(actionChips)
+    }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+    content.addView(place, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(16) })
 
     val list = column()
     content.addView(list)
@@ -33,29 +72,40 @@ internal fun BridgeActivity.fileManager() {
     val owner = content
     tvTask({ entries(current) }) { files ->
         if (content !== owner) return@tvTask
-        if (files.isEmpty()) list.addView(text("This folder is empty.", 16, muted))
+        if (files.isEmpty()) {
+            list.addView(outlinedCard(field, radius = 16, stroke = 1).apply {
+                addView(text("This folder is empty.", 14, muted))
+            })
+        }
         val directories = files.filter { it.folder && !it.link }
-        if (directories.isNotEmpty()) list.addView(sectionTitle("Folders"))
+        if (directories.isNotEmpty()) {
+            list.addView(sectionLabel("Folders (${directories.size})"),
+                LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+        }
         for (pair in directories.chunked(2)) {
             val line = row()
             pair.forEachIndexed { index, child ->
                 val tile = column().apply {
                     contentDescription = "Open folder ${child.name}"
+                    isClickable = true
                     isFocusable = true
-                    background = android.graphics.drawable.RippleDrawable(
-                        android.content.res.ColorStateList.valueOf(ripple), card(radius = corner), null)
-                    setPadding(px(12), px(10), px(10), px(12))
+                    background = interactiveBackground(card(field, corner, outlined = true), radius = corner)
+                    setPadding(px(12), px(6), px(4), px(12))
                     setOnClickListener { visit(TvPath.child(current, child.name)) }
                 }
                 val icons = row()
-                icons.addView(Glyph(this, Mark.FOLDER, accent, 28), LinearLayout.LayoutParams(px(30), px(30)))
+                icons.addView(Glyph(this, Mark.FOLDER, orange, 24), LinearLayout.LayoutParams(px(28), px(28)))
                 icons.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-                icons.addView(fileMore(child.name) { fileOptions(current, child) }, LinearLayout.LayoutParams(px(24), px(29)))
+                icons.addView(fileMore(child.name) { fileOptions(current, child) }, LinearLayout.LayoutParams(px(48), px(48)))
                 tile.addView(icons)
-                tile.addView(text(child.name, 16, bold = true), LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
-                    topMargin = px(9)
+                tile.addView(text(child.name, 14, bold = true).apply {
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(0, 0, px(8), 0)
+                }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+                    topMargin = px(2)
                 })
-                line.addView(tile, LinearLayout.LayoutParams(0, px(94), 1f).apply {
+                line.addView(tile, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
                     if (index > 0) marginStart = px(10)
                 })
             }
@@ -63,40 +113,51 @@ internal fun BridgeActivity.fileManager() {
             list.addView(line, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
         }
         val documents = files.filter { !it.folder || it.link }
-        if (documents.isNotEmpty()) list.addView(sectionTitle("Files"))
+        if (documents.isNotEmpty()) {
+            list.addView(sectionLabel("Files (${documents.size})"),
+                LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(4); bottomMargin = px(8) })
+        }
         for (child in documents) {
+            val ext = child.name.substringAfterLast('.', "").uppercase().take(4)
             val entry = row().apply {
-                setPadding(px(12), px(4), px(10), px(4))
-                background = card(radius = corner)
+                setPadding(px(12), px(4), px(4), px(4))
+                minimumHeight = px(58)
+                background = interactiveBackground(card(field, corner, outlined = true), radius = corner)
+                isClickable = true
                 isFocusable = true
                 contentDescription = "File options for ${child.name}"
                 setOnClickListener { fileOptions(current, child) }
             }
-            entry.addView(Glyph(this, Mark.DOCUMENT, muted), LinearLayout.LayoutParams(px(23), px(23)))
-            entry.addView(text(child.name, 16), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(11) })
-            entry.addView(fileMore(child.name) { fileOptions(current, child) }, LinearLayout.LayoutParams(px(24), px(32)))
-            list.addView(entry, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(56)).apply { bottomMargin = px(10) })
+            entry.addView(Glyph(this, Mark.DOCUMENT, accent, 20), LinearLayout.LayoutParams(px(24), px(24)))
+            val nameCol = column().apply {
+                addView(text(child.name, 14, ink, bold = true).apply {
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                if (ext.isNotBlank() && ext.length <= 4) {
+                    addView(text(if (child.link) "LINK · $ext" else "$ext file", 11, muted).apply {
+                        typeface = monoTypeface
+                        setPadding(0, px(2), 0, 0)
+                    })
+                }
+            }
+            entry.addView(nameCol, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(11) })
+            entry.addView(fileMore(child.name) { fileOptions(current, child) }, LinearLayout.LayoutParams(px(48), px(48)))
+            list.addView(entry, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
         }
     }
 }
 
-private fun BridgeActivity.sectionTitle(label: String) = text(label, 16, bold = true).apply { setPadding(0, 0, 0, px(11)) }
-
-private fun BridgeActivity.fileLink(label: String, action: () -> Unit) = textButton(label, action = action).apply {
-    textSize = 13f
-    setPadding(px(10), px(4), px(10), px(4))
-    minHeight = px(44)
-    minimumHeight = px(44)
-}
-
-private fun BridgeActivity.fileMore(label: String, action: () -> Unit) = Glyph(this, Mark.MORE, muted).apply {
+private fun BridgeActivity.fileMore(label: String, action: () -> Unit) = Glyph(this, Mark.MORE, muted, 18).apply {
     contentDescription = "Options for $label"
+    background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 24))
+    isClickable = true
     isFocusable = true
     setOnClickListener { action() }
 }
 
 private fun BridgeActivity.visit(input: String) {
-    val path = runCatching { TvPath.folder(input) }.getOrElse { report(it.message.orEmpty()); return }
+    val path = runCatching { TvPath.folder(input) }.getOrElse { report(it.message.orEmpty(), NoticeTone.ERROR); return }
     if (path == folder) return
     tvTask({ entries(path) }) {
         folders.add(path)
@@ -117,7 +178,7 @@ internal fun BridgeActivity.uploadFiles(target: String = folder) {
             selected.size
         }) {
             refresh()
-            report("Uploaded $it item(s).")
+            report("Uploaded $it item(s).", NoticeTone.SUCCESS)
         }
     }
 }
@@ -143,37 +204,65 @@ private fun BridgeActivity.fileOptions(current: String, item: RemoteFile) {
 }
 
 internal fun BridgeActivity.apps() {
-    heading("Apps")
-    content.addView(text("Tap an app to see what turning it off would change. Restore can bring back preinstalled apps removed for this TV.", 13, muted).apply {
-        setLineSpacing(px(3).toFloat(), 1f)
-        setPadding(0, 0, 0, px(10))
-    })
-    val quickLinks = row()
-    quickLinks.addView(textButton("Install Apps") { show(Panel.INSTALL) }.apply {
-        textSize = 14f
-        setPadding(0, px(4), px(14), px(4))
-    })
-    quickLinks.addView(textButton("Refresh") { refresh() }.apply {
-        textSize = 14f
-        setPadding(px(4), px(4), px(8), px(4))
-    })
-    content.addView(quickLinks, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+    pageHeader("Apps", "Tap an app to inspect, disable, export APK, or pin to Remote")
 
-    val query = input("Search apps").apply {
+    // Quick-access A4 pill strip (replaces old intermediate Apps & Files hub)
+    val quickStrip = row()
+    val quickItems = listOf(
+        Triple("1-Click Install", Mark.DOWNLOAD) { show(Panel.INSTALL) },
+        Triple("File Manager", Mark.FOLDER) { show(Panel.FILES) },
+        Triple("Send Files", Mark.UPLOAD) { show(Panel.SEND) },
+        Triple("Refresh", Mark.RESTORE) { refresh() }
+    )
+    quickItems.forEachIndexed { idx, (label, icon, onTap) ->
+        val isAccent = idx == 0
+        val chip = row().apply {
+            background = interactiveBackground(
+                card(if (isAccent) tint else field, 14, outlined = !isAccent).apply {
+                    if (isAccent) setStroke(px(1), if (dark) accentBright else edge)
+                },
+                radius = 14
+            )
+            minimumHeight = px(48)
+            setPadding(px(12), 0, px(13), 0)
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
+            addView(Glyph(this@apps, icon, if (isAccent) accent else muted, 16),
+                LinearLayout.LayoutParams(px(18), px(18)).apply { marginEnd = px(6) })
+            addView(text(label, 12, if (isAccent) accent else ink, bold = true))
+            setOnClickListener { onTap() }
+        }
+        quickStrip.addView(chip, LinearLayout.LayoutParams(BridgeActivity.WRAP, px(48)).apply {
+            if (idx > 0) marginStart = px(8)
+        })
+    }
+    content.addView(HorizontalScrollView(this).apply {
+        isHorizontalScrollBarEnabled = false
+        addView(quickStrip)
+    }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
+    val query = input("Search apps or package name").apply {
         setSingleLine()
+        setText(appsSearchQuery)
+        setSelection(text.length)
         background = card(field, 14, outlined = true)
         setPadding(px(14), px(12), px(14), px(12))
     }
-    val countLabel = text("", 14, ink, bold = true).apply {
-        setPadding(0, px(12), 0, px(10))
+    val countLabel = text("", 12, dim, bold = true).apply {
+        letterSpacing = 0.07f
+        setPadding(0, px(12), 0, px(8))
     }
     val list = column()
     val modes = arrayOf("Installed", "Built-in", "Running")
-    var activeMode = 0
+    var activeMode = appsFilterTab.coerceIn(0, 2)
+    var showAllEntries = false
     var installedApps = emptyList<InstalledPackage>()
     var running = emptySet<String>()
+
     fun display() {
         val pattern = query.text.toString().trim()
+        appsSearchQuery = query.text.toString()
         list.removeAllViews()
         val matching = installedApps.asSequence().filter { item ->
             (item.id.contains(pattern, true) || displayName(item.id).contains(pattern, true)) && when (activeMode) {
@@ -183,21 +272,27 @@ internal fun BridgeActivity.apps() {
             }
         }.toList()
         countLabel.text = when (activeMode) {
-            0 -> "Apps you installed (${matching.size})"
-            1 -> "Built-in TV apps (${matching.size})"
-            else -> "Running apps (${matching.size})"
+            0 -> "APPS YOU INSTALLED (${matching.size})"
+            1 -> "BUILT-IN TV APPS (${matching.size})"
+            else -> "RUNNING APPS (${matching.size})"
         }
-        if (matching.isEmpty()) list.addView(text("No matching apps.", 15, muted))
-        for (app in matching) {
+        if (matching.isEmpty()) {
+            list.addView(outlinedCard(field, radius = 16, stroke = 1).apply {
+                addView(text(if (pattern.isNotBlank()) "No apps match \"$pattern\"." else "No apps in this category.", 14, muted))
+            })
+            return
+        }
+        val visible = if (showAllEntries || pattern.isNotBlank() || matching.size <= APPS_INITIAL_RENDER_LIMIT) {
+            matching
+        } else {
+            matching.take(APPS_INITIAL_RENDER_LIMIT)
+        }
+        for (app in visible) {
             val status = if (!app.enabled) "Off" else if (app.id in running) "Running" else ""
             val nickname = displayName(app.id)
             val detail = listOf(app.id, status).filter(String::isNotEmpty).joinToString(" · ")
             val entry = row().apply {
-                background = android.graphics.drawable.RippleDrawable(
-                    android.content.res.ColorStateList.valueOf(ripple),
-                    card(field, corner, outlined = true),
-                    null
-                )
+                background = interactiveBackground(card(field, corner, outlined = true), radius = corner)
                 minimumHeight = px(64)
                 setPadding(px(12), px(10), px(12), px(10))
                 isFocusable = true
@@ -208,35 +303,58 @@ internal fun BridgeActivity.apps() {
             entry.addView(appBadge(app.id), LinearLayout.LayoutParams(px(36), px(36)))
             val copy = column().apply {
                 addView(text(nickname, 15, bold = true))
-                addView(text(detail, 11, muted, true).apply {
-                    letterSpacing = .03f
+                addView(text(detail, 11, muted).apply {
+                    typeface = monoTypeface
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                     setPadding(0, px(3), 0, 0)
                 })
             }
             entry.addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginStart = px(12) })
             entry.addView(text("›", 20, muted), LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { marginStart = px(6) })
-            list.addView(entry, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(9) })
+            list.addView(entry, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+        }
+        if (visible.size < matching.size) {
+            list.addView(button("Show all ${matching.size} apps") {
+                showAllEntries = true
+                display()
+            }, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(48)).apply { topMargin = px(4) })
         }
     }
+
     val tabStrip = row().apply {
         background = card(field, 14, outlined = true)
         setPadding(px(4), px(4), px(4), px(4))
     }
     lateinit var styleTabs: () -> Unit
     val tabButtons = modes.mapIndexed { index, mode ->
-        textButton(mode) { activeMode = index; styleTabs(); display() }
+        textButton(mode) {
+            activeMode = index
+            appsFilterTab = index
+            showAllEntries = false
+            styleTabs()
+            display()
+        }.apply {
+            textSize = 13f
+            minHeight = px(40)
+            minimumHeight = px(40)
+        }
     }
     styleTabs = {
         tabButtons.forEachIndexed { idx, btn ->
             val active = idx == activeMode
             btn.isSelected = active
-            btn.background = if (active) card(tint, 10, false) else null
-            btn.setTextColor(if (active) accent else muted)
+            btn.background = if (active) {
+                card(accentPill, 10, outlined = false).apply {
+                    if (dark) setStroke(px(1), accent)
+                }
+            } else null
+            btn.setTextColor(if (active) Color.WHITE else muted)
         }
     }
-    tabButtons.forEach { tabStrip.addView(it, LinearLayout.LayoutParams(0, px(42), 1f)) }
+    tabButtons.forEach { tabStrip.addView(it, LinearLayout.LayoutParams(0, px(40), 1f)) }
     styleTabs()
-    content.addView(tabStrip, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+    content.addView(tabStrip, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(48)).apply { bottomMargin = px(10) })
     content.addView(query, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
     content.addView(countLabel)
     content.addView(list)
@@ -270,7 +388,7 @@ internal fun BridgeActivity.permissionsForPackage(id: String) {
             record.matchEntire(line)?.let { it.groupValues[1] to it.groupValues[2].toBoolean() }
         }.distinctBy { it.first }.toList()
     }) { permissions ->
-        if (permissions.isEmpty()) return@tvTask report("The TV did not list runtime permissions for this app.")
+        if (permissions.isEmpty()) return@tvTask report("The TV did not list runtime permissions for this app.", NoticeTone.INFO)
         choose("Runtime permissions", permissions.map { (permission, granted) ->
             val verb = if (granted) "revoke" else "grant"
             "${permission.substringAfterLast('.')} · ${if (granted) "Allowed" else "Denied"}" to {
@@ -317,8 +435,9 @@ internal fun BridgeActivity.exportApks(id: String) {
 }
 
 internal fun BridgeActivity.installPage() {
-    heading("Install Apps")
-    paragraph("Choose a single APK or its matching base and split APKs. Android installs them on the connected TV.")
+    val owner = content
+    pageHeader("Install Apps", "1-tap verified GitHub releases or sideload local APK / split APKs")
+
     fun pickApks() {
         chooseDocuments("*/*", true) { uris ->
             confirm("Install on TV?", "Send ${uris.size} selected package file(s) to the connected TV.") {
@@ -334,33 +453,86 @@ internal fun BridgeActivity.installPage() {
                     } finally {
                         apks.forEach(File::delete)
                     }
-                }) { report("Installed on the TV.") }
+                }) { report("Installed on the TV.", NoticeTone.SUCCESS) }
             }
         }
     }
-    floatingAction("Choose APKs", Mark.ADD) {
-        filePickerSheet("Choose APKs", "Select an APK or the base APK and all matching splits.", ::pickApks)
+    floatingAction("Choose APKs", Mark.ADD, ::pickApks)
+
+    content.addView(sectionLabel("1-Click Verified TV Apps"),
+        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+
+    val actionButtons = mutableMapOf<ReleaseApp, TextView>()
+    val statusSubtitles = mutableMapOf<ReleaseApp, TextView>()
+    var installedSet = emptySet<String>()
+
+    for (release in ReleaseApp.entries) {
+        val rowCard = row().apply {
+            background = interactiveBackground(card(field, 18, outlined = true), radius = 18)
+            setPadding(px(14), px(12), px(12), px(12))
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Install ${release.title}"
+        }
+        rowCard.addView(appBadge(release.packageName), LinearLayout.LayoutParams(px(40), px(40)).apply { marginEnd = px(12) })
+        val copy = column()
+        copy.addView(text(release.title, 15, bold = true))
+        copy.addView(text(release.summary, 12, muted).apply {
+            setPadding(0, px(2), 0, 0)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        val repoLine = text(release.repository, 11, dim).apply {
+            typeface = monoTypeface
+            setPadding(0, px(3), 0, 0)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        copy.addView(repoLine)
+        statusSubtitles[release] = repoLine
+        rowCard.addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(10) })
+
+        val pill = text("Install", 12, accent, bold = true).apply {
+            background = card(tint, 14, outlined = false).apply {
+                setStroke(px(1), if (dark) accentBright else edge)
+            }
+            minHeight = px(48)
+            minimumHeight = px(48)
+            gravity = Gravity.CENTER
+            setPadding(px(16), 0, px(16), 0)
+        }
+        actionButtons[release] = pill
+        rowCard.addView(pill, LinearLayout.LayoutParams(BridgeActivity.WRAP, px(48)))
+
+        val triggerInstall = {
+            val already = release.packageName.lowercase() in installedSet
+            val verb = if (already) "Update" else "Install"
+            installOfficialRelease(release, actionVerb = verb) {
+                report(if (already) "Updated ${release.title}." else "Installed ${release.title}.", NoticeTone.SUCCESS)
+                refresh()
+            }
+        }
+        rowCard.setOnClickListener { triggerInstall() }
+        content.addView(rowCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
     }
-    heading("1 Click App Install", 19)
-    val catalog = outlinedCard()
-    for ((index, release) in ReleaseApp.entries.withIndex()) {
-        if (index != 0) catalog.addView(rule())
-        val item = row().apply { minimumHeight = px(60) }
-        item.addView(text(release.title, 16, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-        item.addView(button("Install", description = "Install ${release.title}") {
-            installOfficialRelease(release) { report("Installed ${release.title}.") }
-        }.apply {
-            background = android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(ripple), card(tint, 24, false), null
-            )
-            setTextColor(accent)
-            textSize = 15f
-            minimumHeight = px(40)
-            minHeight = px(40)
-        }, LinearLayout.LayoutParams(px(95), px(40)))
-        catalog.addView(item, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+
+    // Check which 1-Click apps are already installed on the TV
+    tvTask({ installed().mapTo(HashSet()) { it.id.lowercase() } }) { present ->
+        if (content !== owner) return@tvTask
+        installedSet = present
+        for (release in ReleaseApp.entries) {
+            val isInstalled = release.packageName.lowercase() in present
+            val pill = actionButtons[release] ?: continue
+            val repoLine = statusSubtitles[release]
+            if (isInstalled) {
+                pill.text = "Update"
+                pill.setTextColor(successInk)
+                pill.background = card(greenBg, 14, outlined = false).apply { setStroke(px(1), greenStroke) }
+                repoLine?.text = "Installed · ${release.repository}"
+                repoLine?.setTextColor(successInk)
+            }
+        }
     }
-    content.addView(catalog, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
 }
 
 internal fun BridgeActivity.installOfficialRelease(
@@ -402,13 +574,9 @@ internal fun BridgeActivity.choose(title: String, actions: List<Pair<String, () 
         for ((index, entry) in actions.withIndex()) {
             val (label, action) = entry
             val item = row().apply {
-                minimumHeight = px(50)
+                minimumHeight = px(52)
                 setPadding(px(16), px(12), px(16), px(12))
-                background = android.graphics.drawable.RippleDrawable(
-                    android.content.res.ColorStateList.valueOf(ripple),
-                    card(field, corner, outlined = true),
-                    null
-                )
+                background = interactiveBackground(card(field, corner, outlined = true), radius = corner)
                 contentDescription = label
                 isFocusable = true
                 isClickable = true
@@ -428,5 +596,6 @@ internal fun BridgeActivity.choose(title: String, actions: List<Pair<String, () 
 }
 
 internal fun BridgeActivity.commandStatus(result: TerminalResult, message: String) {
-    report(if (result.status == 0) message else result.text.ifBlank { "The TV rejected this command." })
+    if (result.status == 0) report(message, NoticeTone.SUCCESS)
+    else report(result.text.ifBlank { "The TV rejected this command." }, NoticeTone.ERROR)
 }

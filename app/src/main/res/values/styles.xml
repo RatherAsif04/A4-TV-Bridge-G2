@@ -3,12 +3,13 @@
         <item name="android:scrollbars">none</item>
     </style>
     <style name="BridgeTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
         <item name="android:colorAccent">#00587B</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:scrollViewStyle">@style/NoScrollbarScrollView</item>
     </style>
     <style name="BridgeDialogLight" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
         <item name="android:colorAccent">#00587B</item>
         <item name="android:colorControlActivated">#00587B</item>
         <item name="android:colorBackground">#FFFFFF</item>
@@ -18,6 +19,7 @@
         <item name="android:scrollViewStyle">@style/NoScrollbarScrollView</item>
     </style>
     <style name="BridgeDialogDark" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
         <item name="android:colorAccent">#38BDF8</item>
         <item name="android:colorControlActivated">#38BDF8</item>
         <item name="android:colorBackground">#0D1219</item>

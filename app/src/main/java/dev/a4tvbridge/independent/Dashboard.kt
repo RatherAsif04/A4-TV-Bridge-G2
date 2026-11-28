@@ -2,7 +2,6 @@ package dev.a4tvbridge.independent
 
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
@@ -36,32 +35,75 @@ internal fun BridgeActivity.dashboard() {
             setPadding(px(16), px(20), px(16), px(20))
         }
         val words = column().apply {
-            addView(text("A4 TV Bridge", 24, if (dark) ink else Color.WHITE, true))
-            addView(text("Connect to your TV to use the remote, clean bloatware, manage apps, or send files.", 14, if (dark) muted else 0xFFB4C4D6.toInt()).apply {
+            addView(text(getString(R.string.app_name), 24, if (dark) ink else Color.WHITE, true))
+            addView(text(getString(R.string.app_tagline), 14, if (dark) muted else 0xFFB4C4D6.toInt()).apply {
                 setPadding(0, px(8), 0, 0)
                 setLineSpacing(px(4).toFloat(), 1f)
             })
         }
         welcome.addView(words, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-        welcome.addView(ImageView(this).apply { setImageResource(R.drawable.a4_mark) },
-            LinearLayout.LayoutParams(px(88), px(88)).apply { marginStart = px(8) })
+        welcome.addView(ImageView(this).apply {
+            setImageResource(R.drawable.a4_mark)
+            contentDescription = getString(R.string.app_name)
+        }, LinearLayout.LayoutParams(px(88), px(88)).apply { marginStart = px(8) })
         content.addView(welcome, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
-        content.addView(connectButton(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(54)).apply { bottomMargin = px(12) })
+        content.addView(connectButton(), LinearLayout.LayoutParams(BridgeActivity.MATCH, px(54)).apply { bottomMargin = px(14) })
+
+        // 1-Tap Quick Reconnect for Saved TVs
+        val savedTvs = TvDirectory(this).saved()
+        if (savedTvs.isNotEmpty()) {
+            content.addView(sectionLabel("Saved TVs · 1-tap reconnect"),
+                LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+            savedTvs.take(4).forEachIndexed { idx, saved ->
+                val savedRow = row().apply {
+                    background = interactiveBackground(card(field, 18, outlined = true), radius = 18)
+                    minimumHeight = px(62)
+                    setPadding(px(14), px(11), px(12), px(11))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "Reconnect to ${saved.model}"
+                    setOnClickListener { connect(saved.address) }
+                }
+                val iconBox = FrameLayout(this).apply {
+                    background = card(tint, 11, outlined = false).apply { setStroke(px(1), accent) }
+                    addView(Glyph(this@dashboard, Mark.TV, accent, 18),
+                        FrameLayout.LayoutParams(px(20), px(20), Gravity.CENTER))
+                }
+                savedRow.addView(iconBox, LinearLayout.LayoutParams(px(36), px(36)).apply { marginEnd = px(12) })
+                val copy = column().apply {
+                    addView(text(saved.model, 15, bold = true).apply {
+                        isSingleLine = true
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    addView(text("${saved.address} · Saved", 11, muted).apply {
+                        typeface = monoTypeface
+                        setPadding(0, px(2), 0, 0)
+                        isSingleLine = true
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                }
+                savedRow.addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(10) })
+                savedRow.addView(text("Connect", 12, onAccent, bold = true).apply {
+                    background = card(accentStrong, 12, outlined = false).apply {
+                        if (dark) setStroke(px(1), accent)
+                    }
+                    setPadding(px(13), px(8), px(13), px(8))
+                })
+                content.addView(savedRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
+                    bottomMargin = px(if (idx == savedTvs.take(4).lastIndex) 14 else 8)
+                })
+            }
+        }
+
         tiles(content, 1,
             Tile("ADB Debugging Guide", Mark.INFO, "4-step setup for Google TV, Android TV, Fire TV & Xiaomi") {
                 show(Panel.ADB_GUIDE)
             }
         )
-        content.addView(textButton("Other TV types") {
-            choose("Other TV types", listOf(
-                "Android TV / Google TV" to { connectionPicker() },
-                "Fire TV with ADB debugging" to { connectDialog(pair = false) }
-            ))
-        }, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { topMargin = px(6) })
         return
     }
 
-    // 1. Connected TV Hero Card (matches 01-dashboard-dark.png)
+    // 1. Connected TV Hero Card
     val tvCard = outlinedCard(field, radius = 20, stroke = 1)
     val topRow = row().apply { gravity = Gravity.TOP }
     val idCol = column()
@@ -78,33 +120,33 @@ internal fun BridgeActivity.dashboard() {
     idCol.addView(text(name, 20, bold = true))
     idCol.addView(text(modelLine, 12, muted).apply { setPadding(0, px(4), 0, 0) })
     idCol.addView(text("${tv.address} · ADB", 12, accent).apply {
-        typeface = Typeface.MONOSPACE
+        typeface = monoTypeface
         setPadding(0, px(3), 0, 0)
     })
     topRow.addView(idCol, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(8) })
 
-    val switchBtn = text("Switch TV", 12, if (dark) 0xFFB0DEFF.toInt() else accent, bold = true).apply {
-        background = RippleDrawable(
-            ColorStateList.valueOf(ripple),
-            card(if (dark) 0xFF152233.toInt() else tint, 10, outlined = false).apply {
+    val renameBtn = text("Rename", 12, if (dark) 0xFFB0DEFF.toInt() else accent, bold = true).apply {
+        background = interactiveBackground(
+            card(if (dark) surfaceElevated else tint, 12, outlined = false).apply {
                 setStroke(px(1), if (dark) 0xFF2A3F5A.toInt() else edge)
             },
-            null
+            radius = 12
         )
-        setPadding(px(12), px(7), px(12), px(7))
+        minHeight = px(48)
+        minimumHeight = px(48)
+        gravity = Gravity.CENTER
+        setPadding(px(14), 0, px(14), 0)
         isClickable = true
         isFocusable = true
-        contentDescription = "Switch TV"
-        setOnClickListener {
-            choose("Switch TV", listOf("Choose another TV" to { connectionPicker() }, "Disconnect" to { disconnect() }))
-        }
+        contentDescription = "Rename TV"
+        setOnClickListener { renameConnectedTv() }
     }
-    topRow.addView(switchBtn, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP))
+    topRow.addView(renameBtn, LinearLayout.LayoutParams(BridgeActivity.WRAP, px(48)))
     tvCard.addView(topRow)
 
     val storageRow = row()
     val storageText = text("—", 12, if (dark) 0xFFCBD5E1.toInt() else ink).apply {
-        typeface = Typeface.MONOSPACE
+        typeface = monoTypeface
     }
     storageRow.addView(text("TV Storage", 12, muted, true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
     storageRow.addView(storageText)
@@ -113,7 +155,7 @@ internal fun BridgeActivity.dashboard() {
     val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
         val track = card(edge, 6, outlined = false)
         val fill = ClipDrawable(
-            card(0xFF0EA5E9.toInt(), 6, outlined = false),
+            card(accentBright, 6, outlined = false),
             Gravity.START,
             ClipDrawable.HORIZONTAL
         )
@@ -124,18 +166,20 @@ internal fun BridgeActivity.dashboard() {
         max = 100
     }
     tvCard.addView(bar, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(9)).apply { topMargin = px(7) })
-    content.addView(tvCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(16) })
+    content.addView(tvCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
 
     // 2. LIVE TV METRICS (3 accent-dotted cards)
     content.addView(sectionLabel("Live TV metrics", "Device Info") { show(Panel.INFO) },
-        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(6) })
 
     val monitors = row()
     fun metricCard(label: String, dotColor: Int, initialSub: String, isLast: Boolean = false): Pair<TextView, TextView> {
         val box = outlinedCard(field, radius = 16, stroke = 1).apply {
+            background = interactiveBackground(card(field, 16, outlined = true), radius = 16)
             setPadding(px(12), px(11), px(10), px(11))
             isClickable = true
             isFocusable = true
+            contentDescription = "$label live metric — open Device Info"
             setOnClickListener { show(Panel.INFO) }
         }
         val titleRow = row()
@@ -161,7 +205,7 @@ internal fun BridgeActivity.dashboard() {
         })
         return value to sub
     }
-    val (cpuVal, cpuSub) = metricCard("CPU", 0xFF38BDF8.toInt(), "Reading…")
+    val (cpuVal, cpuSub) = metricCard("CPU", accentBright, "Reading…")
     val (ramVal, ramSub) = metricCard("Memory", purple, "Reading…")
     val (netVal, netSub) = metricCard("Network", green, "Live rate", isLast = true)
     content.addView(monitors, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(18) })
@@ -177,8 +221,8 @@ internal fun BridgeActivity.dashboard() {
             "518 CleanYourTV lists",
             if (savedOffCount > 0) "$savedOffCount apps cleaned" else "Auto-match & guards",
             Mark.CLEAN,
-            0xFF0EA5E9.toInt(),
-            if (dark) 0xFF082032.toInt() else 0xFFE0F2FE.toInt()
+            accentBright,
+            tint
         ) { show(Panel.CLEAN) },
         QuickCardSpec(
             "Check my TV",
@@ -202,7 +246,7 @@ internal fun BridgeActivity.dashboard() {
             "4 clean-room themes",
             Mark.HOME,
             orange,
-            if (dark) 0xFF2A1E08.toInt() else 0xFFFEF3C7.toInt()
+            warningBg
         ) { show(Panel.HOME) }
     )
 
@@ -210,7 +254,7 @@ internal fun BridgeActivity.dashboard() {
         val gridRow = row()
         for ((idx, item) in pair.withIndex()) {
             val cardView = column().apply {
-                background = RippleDrawable(ColorStateList.valueOf(ripple), card(field, 18, outlined = true), null)
+                background = interactiveBackground(card(field, 18, outlined = true), radius = 18)
                 setPadding(px(14), px(14), px(14), px(14))
                 val iconBox = FrameLayout(this@dashboard).apply {
                     background = card(item.badgeFill, 10, outlined = false).apply {
@@ -253,18 +297,20 @@ internal fun BridgeActivity.dashboard() {
     val updateHint = availableUpdate?.let { "Update ${it.tagName} available" }
         ?: "Up to date · v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})"
     val moreItems = listOf(
-        Triple("File Manager & Send Files", "Browse /sdcard, upload APKs & media") { show(Panel.FILES) },
-        Triple("Block Ads (Private DNS)", "AdGuard / NextDNS / Control D one-tap") { showDnsOptions() },
+        Triple("File Manager", "Browse TV /sdcard storage & folders") { show(Panel.FILES) },
+        Triple("Send Files to TV", "Push APKs, videos & media over Wi-Fi") { show(Panel.SEND) },
+        Triple("Block Ads (Private DNS)", "AdGuard / Mullvad / Control D / NextDNS") { showDnsOptions() },
         Triple("Screen Mirror & Capture", "Live tap/swipe mirror, PNG & MP4 record") { controls() },
         Triple("About & In-App Updates", updateHint) { openAbout() }
     )
     moreItems.forEachIndexed { idx, (title, sub, action) ->
         val itemRow = row().apply {
             background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 12))
+            minimumHeight = px(56)
             setPadding(px(16), px(12), px(14), px(12))
             val textCol = column().apply {
                 addView(text(title, 15, bold = true))
-                addView(text(sub, 12, if (idx == 3 && availableUpdate != null) accent else muted).apply {
+                addView(text(sub, 12, if (idx == 4 && availableUpdate != null) accent else muted).apply {
                     setPadding(0, px(2), 0, 0)
                 })
             }
@@ -326,26 +372,21 @@ internal fun BridgeActivity.dashboard() {
     }
 }
 
-internal fun BridgeActivity.library() {
-    heading("Apps and files")
-    tiles(content, 1,
-        Tile("Apps", Mark.APPS, "Installed, Built-in & Running") { show(Panel.APPS) },
-        Tile("Install Apps", Mark.DOWNLOAD, "Local APKs, Split APKs & 1-Click") { show(Panel.INSTALL) },
-        Tile("File Manager", Mark.FOLDER, "Browse TV /sdcard storage") { show(Panel.FILES) },
-        Tile("Send files", Mark.UPLOAD, "Push media & APKs to TV") { show(Panel.SEND) }
-    )
-}
-
 private fun BridgeActivity.connectButton() = row().apply {
     gravity = Gravity.CENTER
-    background = RippleDrawable(ColorStateList.valueOf(ripple), card(accentStrong, 15, false).apply {
-        if (dark) setStroke(px(1), accent)
-    }, null)
+    background = interactiveBackground(
+        card(accentStrong, 15, false).apply {
+            if (dark) setStroke(px(1), accent)
+        },
+        focusFill = accentStrong,
+        radius = 15
+    )
     addView(Glyph(this@connectButton, Mark.TV, onAccent), LinearLayout.LayoutParams(px(22), px(22)))
-    addView(text("Connect your TV", 16, onAccent, true), LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply {
+    addView(text(getString(R.string.action_connect_tv), 16, onAccent, true), LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply {
         marginStart = px(10)
     })
-    contentDescription = "Connect your TV"
+    contentDescription = getString(R.string.action_connect_tv)
+    isClickable = true
     isFocusable = true
     setOnClickListener { connectionPicker() }
 }

@@ -128,8 +128,9 @@ internal fun BridgeActivity.rememberEnabled(tv: TvConnection, id: String) {
 internal fun BridgeActivity.care() {
     val tv = connection ?: return
     val changes = savedChanges(tv).size
+    pageHeader("TV Care", "Clean bloatware, verify drift, block ads & restore changes")
     content.addView(sectionLabel("Cleanup and restore"),
-        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(4); bottomMargin = px(8) })
+        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(2); bottomMargin = px(8) })
     tiles(content, 1,
         Tile("Clean Up TV", Mark.CLEAN, if (changes > 0) "$changes off · CleanYourTV (518 lists)" else "CleanYourTV auto-scan & safety guards") { show(Panel.CLEAN) },
         Tile("Check my TV", Mark.CHECK, "Detect drift, re-enabled apps & safety") { show(Panel.CHECK) },
@@ -141,7 +142,6 @@ internal fun BridgeActivity.care() {
         LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(6); bottomMargin = px(8) })
     tiles(content, 1,
         Tile("Device Info", Mark.INFO, "Live CPU, memory & network telemetry") { show(Panel.INFO) },
-        Tile("ADB Shell / Terminal", Mark.SHELL, "Run TV commands directly") { show(Panel.SHELL) },
         Tile("Home & Themes", Mark.HOME, "Launchers & 4 clean-room 1080p themes") { show(Panel.HOME) }
     )
 }
@@ -158,8 +158,7 @@ internal fun BridgeActivity.restoreApps() {
     val tv = connection ?: return
     val owner = content
     val animBackupKey = "anim-before-${tv.serial}"
-    heading("Restore")
-    paragraph("Undo Clean Up TV changes: turn disabled apps back on and restore original animation scales.")
+    pageHeader("Restore", "Undo Clean Up TV changes: turn disabled apps back on and restore animation scales")
     val topActions = column()
     content.addView(topActions)
     val list = column()
@@ -237,7 +236,7 @@ private fun BridgeActivity.roundedProgress(): ProgressBar =
         progress = 0
         progressDrawable = LayerDrawable(arrayOf(
             card(edge, 6, outlined = false),
-            ClipDrawable(card(0xFF0EA5E9.toInt(), 6, outlined = false), Gravity.START, ClipDrawable.HORIZONTAL)
+            ClipDrawable(card(accent, 6, outlined = false), Gravity.START, ClipDrawable.HORIZONTAL)
         )).apply {
             setId(0, android.R.id.background)
             setId(1, android.R.id.progress)
@@ -283,15 +282,16 @@ private fun BridgeActivity.cleanupCheckRow(
     onClick: () -> Unit
 ): View = row().apply {
     val rowBg = card(field, 16, outlined = false).apply {
-        setStroke(px(1), if (checked) (if (dark) 0xFF1E3A5F.toInt() else 0xFF0284C7.toInt()) else edge)
+        setStroke(px(1), if (checked) accent else edge)
     }
-    background = RippleDrawable(ColorStateList.valueOf(ripple), rowBg, null)
+    background = interactiveBackground(rowBg, radius = 16)
+    minimumHeight = px(56)
     setPadding(px(13), px(12), px(13), px(12))
 
     // Rounded checkbox matching 03-cleanup-tv.png
     val checkbox = FrameLayout(this@cleanupCheckRow).apply {
         background = if (checked) {
-            card(0xFF0284C7.toInt(), 7, outlined = false).apply { setStroke(px(1), 0xFF38BDF8.toInt()) }
+            card(accentStrong, 7, outlined = false).apply { setStroke(px(1), accent) }
         } else {
             card(Color.TRANSPARENT, 7, outlined = false).apply { setStroke(px(2), dim) }
         }
@@ -314,7 +314,7 @@ private fun BridgeActivity.cleanupCheckRow(
     val copy = column().apply {
         addView(text(displayName(item.id), 15, bold = true))
         addView(text(item.id, 11, dim).apply {
-            typeface = Typeface.MONOSPACE
+            typeface = monoTypeface
             setPadding(0, px(2), 0, 0)
             isSingleLine = true
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -455,10 +455,7 @@ internal fun BridgeActivity.checkTv() {
     val owner = content
 
     // Header matching 04-check-my-tv.png
-    content.addView(text("Check my TV", 24, bold = true).apply { setPadding(0, px(2), 0, px(2)) })
-    content.addView(text("Automatic drift check, launcher guard & reboot verify", 12, muted).apply {
-        setPadding(0, 0, 0, px(12))
-    })
+    pageHeader("Check my TV", "Automatic drift check, launcher guard & reboot verify")
 
     val body = column()
     content.addView(body)
@@ -530,7 +527,7 @@ internal fun BridgeActivity.checkTv() {
             val clean = issues.isEmpty()
 
             // 1. Emerald Verdict Hero Card (matches 04-check-my-tv.png)
-            val verdictFill = if (clean) greenBg else (if (dark) 0xFF261A08.toInt() else 0xFFFFFBEB.toInt())
+            val verdictFill = if (clean) greenBg else warningBg
             val verdictStroke = if (clean) greenStroke else orange
             val verdictCard = column().apply {
                 background = card(verdictFill, 20, outlined = false).apply { setStroke(px(2), verdictStroke) }
@@ -538,7 +535,7 @@ internal fun BridgeActivity.checkTv() {
             }
             val heroTop = row()
             val circleIcon = FrameLayout(this).apply {
-                background = rounded(if (clean) 0xFF059669.toInt() else orange, 50)
+                background = rounded(if (clean) greenStroke else orange, 50)
                 addView(text(if (clean) "✓" else "!", 22, Color.WHITE, bold = true),
                     FrameLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP, Gravity.CENTER))
             }
@@ -561,8 +558,8 @@ internal fun BridgeActivity.checkTv() {
                 setBackgroundColor(if (clean) (if (dark) 0xFF065F46.toInt() else 0xFFA7F3D0.toInt()) else edge)
             }
             verdictCard.addView(heroDiv, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(1)).apply { topMargin = px(14); bottomMargin = px(10) })
-            verdictCard.addView(text("Last verified: Just now · Live pm readback passed", 11, if (clean) green else orange).apply {
-                typeface = Typeface.MONOSPACE
+            verdictCard.addView(text("Last verified: Just now · Live pm readback passed", 11, if (clean) successInk else orange).apply {
+                typeface = monoTypeface
             })
             body.addView(verdictCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
 
@@ -707,7 +704,7 @@ internal fun BridgeActivity.checkTv() {
                 val badgeBgColor = when (badgeCol) {
                     greenStroke -> greenBg
                     accent -> tint
-                    orange -> if (dark) 0xFF2A1E08.toInt() else 0xFFFEF3C7.toInt()
+                    orange -> warningBg
                     else -> surface
                 }
                 itemRow.addView(text(badgeLabel, 10, badgeCol, bold = true).apply {
@@ -835,22 +832,65 @@ private fun BridgeActivity.startRebootVerification(
 }
 
 internal fun BridgeActivity.freeSpace() {
-    heading("Free up space")
-    val detail = statusCard("Reading TV storage…")
+    val owner = content
+    pageHeader("Free up space", "Inspect TV storage and trim system app caches")
+
+    val pctPill = text("—%", 11, accent, bold = true).apply {
+        background = rounded(tint, 10)
+        setPadding(px(10), px(4), px(10), px(4))
+    }
+    val headline = text("Reading TV storage…", 20, bold = true)
+    val subline = text("Checking /data partition capacity", 12, muted).apply {
+        typeface = monoTypeface
+        setPadding(0, px(3), 0, 0)
+    }
+    val storageBar = roundedProgress()
+
+    val storageCard = outlinedCard(field, radius = 20, stroke = 1).apply {
+        val topRow = row()
+        topRow.addView(text("TV STORAGE OVERVIEW", 11, dim, bold = true).apply { letterSpacing = 0.08f },
+            LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+        topRow.addView(pctPill)
+        addView(topRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+        addView(headline)
+        addView(subline)
+        addView(storageBar, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(9)).apply { topMargin = px(12) })
+    }
+    content.addView(storageCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
     fun measure() {
         tvTask({ details() }) { reading ->
-            detail.text = "${formatBytes(reading.diskFree)} free · ${formatBytes(reading.diskTotal)} total"
+            if (content !== owner) return@tvTask
+            val free = reading.diskFree
+            val total = reading.diskTotal
+            val used = if (free != null && total != null) (total - free).coerceAtLeast(0L) else null
+            val pct = reading.diskUsage ?: 0
+            headline.text = "${formatBytes(free)} available"
+            subline.text = "${formatBytes(used)} used  ·  ${formatBytes(total)} total"
+            pctPill.text = "$pct% used"
+            storageBar.progress = pct.coerceIn(0, 100)
         }
     }
+
     addButton("Clear app caches", emphasis = true) {
         confirm("Ask Android to trim caches?", "Android chooses which cached files to clear.") {
             tvTask({ command("pm trim-caches 999G") }) { result ->
-                if (result.status == 0) measure() else commandStatus(result, "Cache request sent to Android.")
+                if (result.status == 0) {
+                    report("Cache trim completed.", NoticeTone.SUCCESS)
+                    measure()
+                } else {
+                    commandStatus(result, "Cache request sent to Android.")
+                }
             }
         }
     }
-    addButton("Manage installed apps") { show(Panel.APPS) }
-    addButton("Manage files") { show(Panel.FILES) }
+
+    content.addView(sectionLabel("Reclaim more space"),
+        LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(6); bottomMargin = px(8) })
+    tiles(content, 1,
+        Tile("Manage installed apps", Mark.APPS, "Uninstall or disable large TV apps") { show(Panel.APPS) },
+        Tile("Browse TV files", Mark.FOLDER, "Remove old APKs, recordings & downloads") { show(Panel.FILES) }
+    )
     measure()
 }
 
@@ -873,10 +913,7 @@ internal fun BridgeActivity.cleanup() {
     val animBackupKey = "anim-before-${tv.serial}"
 
     // Header matching 03-cleanup-tv.png
-    content.addView(text("Clean Up TV", 24, bold = true).apply { setPadding(0, px(2), 0, px(2)) })
-    content.addView(text("Powered by CleanYourTV · 518 community device lists", 12, accent).apply {
-        setPadding(0, 0, 0, px(12))
-    })
+    pageHeader("Clean Up TV", "Powered by CleanYourTV · 518 community device lists")
 
     val body = column()
     content.addView(body)
@@ -988,8 +1025,8 @@ internal fun BridgeActivity.cleanup() {
 
             // 1. Auto-Matched Profile Banner (matches 03-cleanup-tv.png)
             val profileBanner = column().apply {
-                background = card(tint, 20, outlined = false).apply { setStroke(px(1), 0xFF0284C7.toInt()) }
-                setPadding(px(16), px(14), px(16), px(14))
+                background = card(tint, 20, outlined = false).apply { setStroke(px(1), accent) }
+                setPadding(px(16), px(12), px(16), px(14))
             }
             val bannerTop = row()
             val badgeLabel = when (scanResult.match.kind) {
@@ -998,7 +1035,7 @@ internal fun BridgeActivity.cleanup() {
                 ProfileMatchKind.MANUAL -> "SELECTED LIST"
                 ProfileMatchKind.AUTO_DETECTED -> "AUTO-DETECTED"
             }
-            bannerTop.addView(text(badgeLabel, 10, if (dark) 0xFF7DD3FC.toInt() else accent, bold = true).apply {
+            bannerTop.addView(text(badgeLabel, 10, accentBright, bold = true).apply {
                 background = rounded(if (dark) 0xFF0C4A6E.toInt() else Color.WHITE, 9)
                 setPadding(px(10), px(4), px(10), px(4))
                 letterSpacing = 0.05f
@@ -1008,14 +1045,14 @@ internal fun BridgeActivity.cleanup() {
                 openProfilePicker(scanResult.catalog, scanResult.match.profileName, ::scan)
             }.apply {
                 textSize = 12f
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(px(6), px(2), 0, px(2))
+                minHeight = px(48)
+                minimumHeight = px(48)
+                setPadding(px(10), 0, px(4), 0)
             })
             profileBanner.addView(bannerTop)
 
             val tvTitle = scanResult.match.profileTitle ?: scanResult.match.profileName ?: activeTv.model
-            profileBanner.addView(text(tvTitle, 17, bold = true).apply { setPadding(0, px(8), 0, 0) })
+            profileBanner.addView(text(tvTitle, 17, bold = true).apply { setPadding(0, px(4), 0, 0) })
             val summarySub = buildString {
                 append(scanResult.match.profileName?.let { "Matched via tv.json · " } ?: "CleanYourTV consensus · ")
                 if (scanResult.enabledItems.isNotEmpty()) append("${scanResult.enabledItems.size} active bloatware apps found")
@@ -1043,19 +1080,18 @@ internal fun BridgeActivity.cleanup() {
             fun animChip(label: String, active: Boolean, marginStartDp: Int, onPick: () -> Unit) {
                 val chip = button(label) { onPick() }.apply {
                     textSize = 12f
-                    minHeight = px(38)
-                    minimumHeight = px(38)
-                    setPadding(px(4), px(6), px(4), px(6))
+                    minHeight = px(48)
+                    minimumHeight = px(48)
+                    setPadding(px(4), px(8), px(4), px(8))
                     setTextColor(if (active) Color.WHITE else muted)
-                    background = RippleDrawable(
-                        ColorStateList.valueOf(ripple),
-                        if (active) card(accentPill, 10, outlined = false).apply {
+                    background = interactiveBackground(
+                        if (active) card(accentPill, 12, outlined = false).apply {
                             if (dark) setStroke(px(1), accent)
-                        } else card(if (dark) 0xFF131C27.toInt() else surface, 10, outlined = true),
-                        null
+                        } else card(surfaceElevated, 12, outlined = true),
+                        radius = 12
                     )
                 }
-                animRow.addView(chip, LinearLayout.LayoutParams(0, px(38), 1f).apply {
+                animRow.addView(chip, LinearLayout.LayoutParams(0, px(48), 1f).apply {
                     if (marginStartDp > 0) marginStart = px(marginStartDp)
                 })
             }
@@ -1063,7 +1099,7 @@ internal fun BridgeActivity.cleanup() {
                 tvTask({
                     writeAnimationScales(listOf("1.0", "1.0", "1.0"))
                     preferences.edit().remove(animBackupKey).apply()
-                }) { report("TV animations reset to 1.0x."); scan() }
+                }) { report("TV animations reset to 1.0x.", NoticeTone.SUCCESS); scan() }
             }
             animChip("0.5x Snappy", isHalf, 8) {
                 tvTask({
@@ -1071,7 +1107,7 @@ internal fun BridgeActivity.cleanup() {
                         preferences.edit().putString(animBackupKey, readAnimationScales().joinToString(",")).apply()
                     }
                     writeAnimationScales(listOf("0.5", "0.5", "0.5"))
-                }) { report("TV animations set to 0.5x."); scan() }
+                }) { report("TV animations set to 0.5x.", NoticeTone.SUCCESS); scan() }
             }
             animChip("0x Instant", isZero, 8) {
                 tvTask({
@@ -1079,7 +1115,7 @@ internal fun BridgeActivity.cleanup() {
                         preferences.edit().putString(animBackupKey, readAnimationScales().joinToString(",")).apply()
                     }
                     writeAnimationScales(listOf("0", "0", "0"))
-                }) { report("TV animations turned off."); scan() }
+                }) { report("TV animations turned off.", NoticeTone.SUCCESS); scan() }
             }
             animCard.addView(animRow)
             body.addView(animCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
@@ -1090,14 +1126,14 @@ internal fun BridgeActivity.cleanup() {
                 setPadding(px(16), px(13), px(16), px(13))
             }
             val guardedSuffix = if (scanResult.protectedItems.isNotEmpty()) " (${scanResult.protectedItems.size} PROTECTED)" else ""
-            guardBanner.addView(text("SAFETY GUARDS ACTIVE$guardedSuffix", 11, green, bold = true).apply {
+            guardBanner.addView(text("SAFETY GUARDS ACTIVE$guardedSuffix", 11, successInk, bold = true).apply {
                 letterSpacing = 0.06f
             })
             guardBanner.addView(text("Boot-loop & lock-out packages automatically skipped:", 12, if (dark) 0xFFD1FAE5.toInt() else ink).apply {
                 setPadding(0, px(4), 0, 0)
             })
-            guardBanner.addView(text("Home launcher · HDMI/AV inputs · setupwraith · SystemUI", 11, if (dark) 0xFF6EE7B7.toInt() else green).apply {
-                typeface = Typeface.MONOSPACE
+            guardBanner.addView(text("Home launcher · HDMI/AV inputs · setupwraith · SystemUI", 11, successInk).apply {
+                typeface = monoTypeface
                 setPadding(0, px(4), 0, 0)
             })
             if (scanResult.protectedItems.isNotEmpty()) {
@@ -1156,13 +1192,23 @@ internal fun BridgeActivity.cleanup() {
                     scanResult.enabledItems.forEach { selectedIds.add(it.id) }
                     updateCounts()
                     renderSelectableRows()
-                }.apply { textSize = 12f; minHeight = 0; minimumHeight = 0 })
+                }.apply {
+                    textSize = 12f
+                    minHeight = px(48)
+                    minimumHeight = px(48)
+                    setPadding(px(10), 0, px(10), 0)
+                })
                 listHeader.addView(textButton("None") {
                     selectedIds.clear()
                     updateCounts()
                     renderSelectableRows()
-                }.apply { textSize = 12f; minHeight = 0; minimumHeight = 0 }, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { marginStart = px(8) })
-                body.addView(listHeader, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(8) })
+                }.apply {
+                    textSize = 12f
+                    minHeight = px(48)
+                    minimumHeight = px(48)
+                    setPadding(px(10), 0, px(6), 0)
+                }, LinearLayout.LayoutParams(BridgeActivity.WRAP, BridgeActivity.WRAP).apply { marginStart = px(4) })
+                body.addView(listHeader, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(4) })
 
                 primaryBtn.setOnClickListener {
                     val chosen = scanResult.enabledItems.filter { it.id in selectedIds }

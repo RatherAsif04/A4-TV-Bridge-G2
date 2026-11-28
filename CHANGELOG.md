@@ -4,6 +4,23 @@ All notable changes to **A4 TV Bridge** (`dev.a4tvbridge.app`) are documented in
 
 ---
 
+## [v1.4.4] — Build 15
+
+### Added & Upgraded
+- **Adaptive Launcher Icon & Typography**: Added Android adaptive, round, and Android 13+ Material You monochrome launcher icons (`mipmap-anydpi-v26` + density fallbacks) alongside locally bundled **Plus Jakarta Sans** UI typography and **JetBrains Mono** for IPs, package IDs, and ADB shell output.
+- **AMOLED Black & Material You Dynamic Color**: Added a true-black **AMOLED Black** (`#000000`) appearance preset and an Android 12+ **Dynamic Color (Material You)** accent toggle in **Appearance**.
+- **Android 15/16 Standards & Accessibility**: Enabled Predictive Back (`OnBackInvokedCallback`), guarded deprecated edge-to-edge system bar color APIs on API 35+, enforced 48dp minimum touch targets across buttons/pills/close controls, added D-pad focus rings and content descriptions, and added responsive tablet/TV container max-widths (`640dp` content, `600dp` sheets).
+- **Streamlined Navigation & Features**:
+  - **Welcome Screen**: Added 1-tap **Saved TVs** reconnect cards directly on launch.
+  - **Dashboard**: Replaced duplicate `Switch TV` action with **Rename TV**; split **File Manager** and **Send Files to TV** into direct entries.
+  - **Apps & Files**: Bottom dock `Apps` tab now lands directly in **Apps** with a quick pill strip for **1-Click Install**, **File Manager**, **Send Files**, and **Refresh**, plus search/filter state preservation and 60-item pagination.
+  - **1-Click Apps**: Added app badges, 1-line descriptions, live **Installed / Update** status checks, and direct APK picker sideloading.
+  - **TV Care & Free Up Space**: Removed duplicate ADB Shell entry from Care; upgraded **Free up space** with a live TV Storage Overview card and visual progress bar.
+  - **ADB Shell & Screen Mirror**: Upgraded Shell with `13sp` JetBrains Mono output, quick command preset chips, and recent command history; upgraded Screen Mirror with live status pill, clean canvas placeholder, and A4 capture controls.
+  - **Efficiency & Feedback**: Replaced bare status text with auto-dismissing semantic notice banners (`INFO`/`WORKING`/`SUCCESS`/`ERROR`) and removed unnecessary 1-second polling in **Send Files**.
+
+---
+
 ## [v1.4.3] — Build 14
 
 ### Fixed & Improved

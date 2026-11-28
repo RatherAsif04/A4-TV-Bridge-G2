@@ -111,7 +111,7 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
         addView(text(id, 11, if (dark) accent else muted).apply {
-            typeface = Typeface.MONOSPACE
+            typeface = monoTypeface
             setPadding(0, px(2), 0, 0)
             isSingleLine = true
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -125,19 +125,19 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         else -> "Installed"
     }
     val pillFill = when {
-        !item.enabled -> if (dark) 0xFF1E170A.toInt() else 0xFFFFFBEB.toInt()
+        !item.enabled -> warningBg
         item.system -> tint
         else -> greenBg
     }
     val pillStroke = when {
         !item.enabled -> orange
-        item.system -> if (dark) 0xFF0284C7.toInt() else edge
+        item.system -> if (dark) accent else edge
         else -> greenStroke
     }
     val pillInk = when {
         !item.enabled -> orange
         item.system -> accent
-        else -> if (dark) 0xFF6EE7B7.toInt() else green
+        else -> successInk
     }
     headerRow.addView(text(pillLabel, 11, pillInk, bold = true).apply {
         background = card(pillFill, 12, outlined = false).apply { setStroke(px(1), pillStroke) }
@@ -155,11 +155,7 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
 
     // 2. A4-Styled Safety Notice Card (matches TV Scanner status card language)
     val noticeBorder = if (guidance.cautious) orange else accent
-    val noticeFill = if (guidance.cautious) {
-        if (dark) 0xFF1E170A.toInt() else 0xFFFFFBEB.toInt()
-    } else {
-        tint
-    }
+    val noticeFill = if (guidance.cautious) warningBg else tint
     val noticeLabel = when {
         guidance.riskyUninstall -> "USER INSTALLED APP"
         guidance.cautious -> "THINK FIRST"
@@ -242,13 +238,10 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         }
     }.apply {
         if (guidance.riskyUninstall) {
-            val roseFill = if (dark) 0xFF281018.toInt() else 0xFFFFF1F2.toInt()
-            val roseInk = if (dark) 0xFFFB7185.toInt() else 0xFFE11D48.toInt()
-            setTextColor(roseInk)
-            background = RippleDrawable(
-                ColorStateList.valueOf(ripple),
-                card(roseFill, 15, outlined = false).apply { setStroke(px(1), rose) },
-                null
+            setTextColor(dangerInk)
+            background = interactiveBackground(
+                card(dangerBg, 15, outlined = false).apply { setStroke(px(1), rose) },
+                radius = 15
             )
         }
     }
@@ -258,12 +251,12 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
 
     // 5. Collapsible "More app options" in A4's grouped hairline MORE TOOLS style
     var expanded = false
-    val moreCard = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 18, stroke = 1).apply {
+    val moreCard = outlinedCard(surfaceSubtle, radius = 18, stroke = 1).apply {
         setPadding(0, px(4), 0, px(4))
         visibility = View.GONE
     }
 
-    val dangerInk = if (dark) 0xFFFB7185.toInt() else 0xFFE11D48.toInt()
+    val destructiveInk = dangerInk
     val extraActions = listOf<Triple<String, Boolean, () -> Unit>>(
         Triple("Open on TV", false) {
             popup.dismiss()
@@ -318,9 +311,9 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
             isClickable = true
             isFocusable = true
             contentDescription = label
-            addView(text(label, 14, if (destructive) dangerInk else ink, bold = true),
+            addView(text(label, 14, if (destructive) destructiveInk else ink, bold = true),
                 LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-            addView(text("›", 19, if (destructive) dangerInk else dim, bold = true))
+            addView(text("›", 19, if (destructive) destructiveInk else dim, bold = true))
             setOnClickListener { action() }
         }
         moreCard.addView(itemRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
@@ -336,7 +329,7 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
     val toggleChevron = text("▾", 16, accent, bold = true)
     val toggleMore = row().apply {
         background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 12))
-        minimumHeight = px(44)
+        minimumHeight = px(48)
         setPadding(px(4), px(6), px(4), px(6))
         isClickable = true
         isFocusable = true
@@ -380,10 +373,14 @@ internal fun BridgeActivity.packageOptions(item: InstalledPackage) {
         setBackgroundDrawableResource(android.R.color.transparent)
         setDimAmount(0.55f)
         addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        navigationBarColor = field
+        if (android.os.Build.VERSION.SDK_INT < 35) {
+            @Suppress("DEPRECATION")
+            navigationBarColor = field
+        }
         androidx.core.view.WindowCompat.getInsetsController(this, decorView).isAppearanceLightNavigationBars = !dark
         setGravity(Gravity.BOTTOM)
-        setLayout(BridgeActivity.MATCH, BridgeActivity.WRAP)
+        val sheetWidth = if (resources.configuration.screenWidthDp >= 640) px(600) else BridgeActivity.MATCH
+        setLayout(sheetWidth, BridgeActivity.WRAP)
     }
 
     sheet.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->

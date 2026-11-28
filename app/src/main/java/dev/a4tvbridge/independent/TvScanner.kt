@@ -217,14 +217,14 @@ internal fun BridgeActivity.tvScannerPage() {
     var runScan: () -> Unit = {}
     val rescanBtn = textButton("Rescan") { runScan() }.apply {
         textSize = 13f
-        minHeight = 0
-        minimumHeight = 0
-        setPadding(px(6), px(2), 0, px(2))
+        minHeight = px(48)
+        minimumHeight = px(48)
+        setPadding(px(12), 0, px(4), 0)
     }
     listHeaderRow.addView(listHeaderText, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
     listHeaderRow.addView(rescanBtn)
     content.addView(listHeaderRow, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply {
-        bottomMargin = px(10)
+        bottomMargin = px(6)
     })
 
     val devicesList = column()
@@ -263,12 +263,12 @@ internal fun BridgeActivity.tvScannerPage() {
 
         when (effective.phase) {
             ConnectionPhase.SCANNING -> {
-                radar.updateStyle(accent, if (dark) 0xFF0A2238.toInt() else tint, animate = true)
+                radar.updateStyle(accent, tint, animate = true)
                 heroTitle.text = "Scanning local network…"
                 heroSubtitle.text = "Searching for Android TV, Google TV & Fire TV"
             }
             ConnectionPhase.IDLE -> {
-                radar.updateStyle(accent, if (dark) 0xFF0A2238.toInt() else tint, animate = false)
+                radar.updateStyle(accent, tint, animate = false)
                 heroTitle.text = if (discovered.isEmpty()) "Scan complete" else "${discovered.size} TV(s) ready"
                 heroSubtitle.text = if (discovered.isEmpty()) {
                     "No TVs responded yet · Tap Rescan or check ADB Debugging Guide"
@@ -277,12 +277,12 @@ internal fun BridgeActivity.tvScannerPage() {
                 }
             }
             ConnectionPhase.CONNECTING -> {
-                radar.updateStyle(accent, if (dark) 0xFF0A2238.toInt() else tint, animate = true)
+                radar.updateStyle(accent, tint, animate = true)
                 heroTitle.text = "Connecting to TV…"
                 heroSubtitle.text = effective.targetLabel.ifBlank { "Opening ADB connection" }
             }
             ConnectionPhase.AWAITING_APPROVAL -> {
-                radar.updateStyle(orange, if (dark) 0xFF2A1E08.toInt() else 0xFFFEF3C7.toInt(), animate = true)
+                radar.updateStyle(orange, warningBg, animate = true)
                 heroTitle.text = "Waiting for TV approval"
                 heroSubtitle.text = "Check 'Always allow' and press OK on your TV screen"
             }
@@ -292,7 +292,7 @@ internal fun BridgeActivity.tvScannerPage() {
                 heroSubtitle.text = effective.detail.ifBlank { "Ready" }
             }
             ConnectionPhase.ERROR -> {
-                radar.updateStyle(rose, if (dark) 0xFF2B1019.toInt() else 0xFFFFE4E6.toInt(), animate = false)
+                radar.updateStyle(rose, dangerBg, animate = false)
                 heroTitle.text = "Could not connect"
                 heroSubtitle.text = effective.targetLabel.ifBlank { "Check TV IP, Wi-Fi, and ADB debugging" }
             }
@@ -332,8 +332,8 @@ internal fun BridgeActivity.tvScannerPage() {
                     else -> accent
                 }
                 val bgFill = when {
-                    isError -> if (dark) 0xFF1D0D14.toInt() else 0xFFFFF1F2.toInt()
-                    isApproval -> if (dark) 0xFF1E170A.toInt() else 0xFFFFFBEB.toInt()
+                    isError -> dangerBg
+                    isApproval -> warningBg
                     else -> tint
                 }
                 val banner = row().apply {
@@ -354,8 +354,10 @@ internal fun BridgeActivity.tvScannerPage() {
                 banner.addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply { marginEnd = px(8) })
                 if (isError && effective.targetAddress != null) {
                     val retryBtn = text("Retry", 12, Color.WHITE, bold = true).apply {
-                        background = RippleDrawable(ColorStateList.valueOf(ripple), rounded(accentStrong, 10), null)
-                        setPadding(px(12), px(7), px(12), px(7))
+                        gravity = Gravity.CENTER
+                        minHeight = px(40)
+                        background = interactiveBackground(rounded(accentStrong, 12), radius = 12)
+                        setPadding(px(14), px(8), px(14), px(8))
                         isClickable = true
                         isFocusable = true
                         setOnClickListener { connect(effective.targetAddress, after = scannerAfter) }
@@ -363,8 +365,10 @@ internal fun BridgeActivity.tvScannerPage() {
                     banner.addView(retryBtn)
                 } else if (!isError) {
                     val cancelBtn = text("Cancel", 12, ink, bold = true).apply {
-                        background = RippleDrawable(ColorStateList.valueOf(ripple), card(field, 10, outlined = true), null)
-                        setPadding(px(12), px(7), px(12), px(7))
+                        gravity = Gravity.CENTER
+                        minHeight = px(40)
+                        background = interactiveBackground(card(field, 12, outlined = true), radius = 12)
+                        setPadding(px(14), px(8), px(14), px(8))
                         isClickable = true
                         isFocusable = true
                         setOnClickListener { cancelActiveConnection() }
@@ -403,9 +407,9 @@ internal fun BridgeActivity.tvScannerPage() {
                 DiscoveredSource.SAVED -> muted
             }
             val iconFill = when (device.source) {
-                DiscoveredSource.LIVE_ADB -> if (dark) 0xFF0A2238.toInt() else tint
+                DiscoveredSource.LIVE_ADB -> tint
                 DiscoveredSource.WIRELESS_PAIR -> if (dark) 0xFF1C1436.toInt() else 0xFFF3E8FF.toInt()
-                DiscoveredSource.SAVED -> if (dark) 0xFF131D2B.toInt() else 0xFFF1F5F9.toInt()
+                DiscoveredSource.SAVED -> surfaceElevated
             }
             val statusLabel = when (device.source) {
                 DiscoveredSource.LIVE_ADB -> "ADB Ready"
@@ -428,7 +432,8 @@ internal fun BridgeActivity.tvScannerPage() {
             }
 
             val cardRow = row().apply {
-                background = RippleDrawable(ColorStateList.valueOf(ripple), card(field, 18, outlined = true), null)
+                background = interactiveBackground(card(field, 18, outlined = true), radius = 18)
+                minimumHeight = px(64)
                 setPadding(px(14), px(12), px(12), px(12))
                 isClickable = true
                 isFocusable = true
@@ -448,7 +453,7 @@ internal fun BridgeActivity.tvScannerPage() {
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 })
                 addView(text("${device.address} · $statusLabel", 11, if (isLive) accent else muted).apply {
-                    typeface = Typeface.MONOSPACE
+                    typeface = monoTypeface
                     setPadding(0, px(3), 0, 0)
                     isSingleLine = true
                     ellipsize = android.text.TextUtils.TruncateAt.END
@@ -462,8 +467,10 @@ internal fun BridgeActivity.tvScannerPage() {
                 if (isPair) ink else Color.WHITE,
                 bold = true
             ).apply {
+                gravity = Gravity.CENTER
+                minHeight = px(40)
                 background = if (isPair) {
-                    card(if (dark) 0xFF131D2B.toInt() else field, 12, outlined = true)
+                    card(surfaceElevated, 12, outlined = true)
                 } else {
                     card(accentStrong, 12, outlined = false).apply {
                         if (dark) setStroke(px(1), accent)

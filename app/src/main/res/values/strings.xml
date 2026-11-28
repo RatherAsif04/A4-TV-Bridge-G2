@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">A4 TV Bridge</string>
+    <string name="app_tagline">Connect to your TV to use the remote, clean bloatware, manage apps, or send files.</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_control">Control</string>
+    <string name="nav_care">TV Care</string>
+    <string name="nav_shell">Shell</string>
+    <string name="action_connect_tv">Connect your TV</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_close">Close</string>
+    <string name="action_back">Back</string>
+    <string name="status_working">Working…</string>
+    <string name="status_connected">Connected</string>
+</resources>

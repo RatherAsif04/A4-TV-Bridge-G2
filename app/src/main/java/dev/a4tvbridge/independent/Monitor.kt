@@ -27,13 +27,12 @@ internal fun BridgeActivity.deviceInfo() {
     // Header row matching 05-device-info-network.png: Device Info + Share Info pill
     val topBar = row()
     topBar.addView(text("Device Info", 24, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-    val sharePill = text("Share Info", 12, if (dark) 0xFFB0DEFF.toInt() else accent, bold = true).apply {
-        background = RippleDrawable(
-            ColorStateList.valueOf(ripple),
-            card(if (dark) 0xFF131D2B.toInt() else field, 11, outlined = true),
-            null
-        )
-        setPadding(px(13), px(8), px(13), px(8))
+    val sharePill = text("Share Info", 12, accentBright, bold = true).apply {
+        gravity = Gravity.CENTER
+        minHeight = px(48)
+        minimumHeight = px(48)
+        background = interactiveBackground(card(surfaceElevated, 12, outlined = true), radius = 12)
+        setPadding(px(14), px(8), px(14), px(8))
         isClickable = true
         isFocusable = true
         contentDescription = "Share Device Info"
@@ -172,12 +171,12 @@ private fun BridgeActivity.buildReport(
     val gauges = ArrayList<Gauge>(3)
     val metric = text("—", 26, bold = true)
     val detail = text("", 14, muted, true)
-    val rangeRight = text("Now", 11, dim).apply { typeface = Typeface.MONOSPACE }
+    val rangeRight = text("Now", 11, dim).apply { typeface = monoTypeface }
 
     if (section == MonitorPage.OVERVIEW) {
         summary.addView(text("TV ACTIVITY (LIVE)", 11, dim, bold = true).apply { letterSpacing = 0.08f })
         val meters = row()
-        for ((name, color) in listOf("CPU" to 0xFF38BDF8.toInt(), "Memory" to purple, "Storage" to green)) {
+        for ((name, color) in listOf("CPU" to accent, "Memory" to purple, "Storage" to green)) {
             val area = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
             val gauge = Gauge(this, color)
             gauges += gauge
@@ -204,8 +203,8 @@ private fun BridgeActivity.buildReport(
     if (section in listOf(MonitorPage.OVERVIEW, MonitorPage.NETWORK)) {
         val networkRow = row()
         val cols = listOf(
-            Triple("↓ DOWNLOAD", 0xFF38BDF8.toInt(), if (dark) 0xFF7DD3FC.toInt() else accent),
-            Triple("↑ UPLOAD", green, if (dark) 0xFF6EE7B7.toInt() else green)
+            Triple("↓ DOWNLOAD", accent, accentBright),
+            Triple("↑ UPLOAD", green, successInk)
         )
         for ((label, valColor, lblColor) in cols) {
             val rate = text("—", 22, valColor, bold = true)
@@ -224,7 +223,7 @@ private fun BridgeActivity.buildReport(
     val chart = MonitorTrend(this)
     summary.addView(chart, LinearLayout.LayoutParams(BridgeActivity.MATCH, px(122)).apply { topMargin = px(10) })
     val range = row()
-    range.addView(text("60s ago", 11, dim).apply { typeface = Typeface.MONOSPACE }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
+    range.addView(text("60s ago", 11, dim).apply { typeface = monoTypeface }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
     range.addView(rangeRight)
     summary.addView(range, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { topMargin = px(4) })
 
@@ -274,7 +273,7 @@ private fun BridgeActivity.buildReport(
         val line = row().apply { setPadding(0, px(6), 0, px(6)) }
         line.addView(text(key, 13, muted), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
         line.addView(text(value, 13, ink, bold = true).apply {
-            if (mono) typeface = Typeface.MONOSPACE
+            if (mono) typeface = monoTypeface
             gravity = Gravity.END
         })
         host.addView(line, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
@@ -357,7 +356,7 @@ private fun BridgeActivity.buildReport(
                             addView(text("$count process${if (count == 1) "" else "es"}", 11, muted))
                         }
                         line.addView(process, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-                        line.addView(text(formatBytes(kib * 1024), 15, bold = true).apply { typeface = Typeface.MONOSPACE })
+                        line.addView(text(formatBytes(kib * 1024), 15, bold = true).apply { typeface = monoTypeface })
                         processes.addView(line)
                     }
                 }
@@ -403,10 +402,10 @@ private fun BridgeActivity.buildReport(
                         val item = column().apply { setPadding(0, px(8), 0, px(8)) }
                         val headerLine = row()
                         headerLine.addView(text(entry.label, 14, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
-                        headerLine.addView(text(formatBytes(entry.totalBytes), 14, bold = true).apply { typeface = Typeface.MONOSPACE })
+                        headerLine.addView(text(formatBytes(entry.totalBytes), 14, bold = true).apply { typeface = monoTypeface })
                         item.addView(headerLine)
                         item.addView(text("↓ ${formatBytes(entry.rxBytes)} · ↑ ${formatBytes(entry.txBytes)}", 11, dim).apply {
-                            typeface = Typeface.MONOSPACE
+                            typeface = monoTypeface
                             setPadding(0, px(2), 0, px(6))
                         })
                         val track = FrameLayout(this).apply {

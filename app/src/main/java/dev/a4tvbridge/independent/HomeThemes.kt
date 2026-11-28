@@ -153,10 +153,7 @@ internal fun BridgeActivity.homeScreenPage() {
     var selectedPreset = HomeThemePreset.NORDIC_SLATE
 
     // Title & subtitle matching 06-home-themes-light.png
-    content.addView(text("Home & Themes", 24, bold = true).apply { setPadding(0, px(2), 0, px(2)) })
-    content.addView(text("Switch default TV launcher & push 1080p wallpapers", 12, muted).apply {
-        setPadding(0, 0, 0, px(14))
-    })
+    pageHeader("Home & Themes", "Switch default TV launcher & push 1080p wallpapers")
 
     // 1. DEFAULT HOME LAUNCHER Card
     val launchersCard = outlinedCard(field, radius = 20, stroke = 1)
@@ -186,13 +183,11 @@ internal fun BridgeActivity.homeScreenPage() {
             refresh()
         }
     }.apply {
-        background = RippleDrawable(
-            ColorStateList.valueOf(ripple), card(tint, 24, false), null
-        )
+        background = interactiveBackground(card(tint, 24, false), radius = 24)
         setTextColor(accent)
         textSize = 14f
-        minimumHeight = px(40)
-        minHeight = px(40)
+        minimumHeight = px(48)
+        minHeight = px(48)
     }
     val projectivyCard = outlinedCard(field, radius = 20, stroke = 1).apply {
         addView(text("RECOMMENDED TV LAUNCHER", 11, dim, bold = true).apply {
@@ -209,7 +204,7 @@ internal fun BridgeActivity.homeScreenPage() {
                 marginStart = px(12)
                 marginEnd = px(10)
             })
-            addView(projectivyBtn, LinearLayout.LayoutParams(px(92), px(40)))
+            addView(projectivyBtn, LinearLayout.LayoutParams(px(96), px(48)))
         }
         addView(projectivyRow)
     }
@@ -234,12 +229,11 @@ internal fun BridgeActivity.homeScreenPage() {
             for ((idx, preset) in pair.withIndex()) {
                 val isSelected = preset == selectedPreset
                 val itemCard = column().apply {
-                    background = RippleDrawable(
-                        ColorStateList.valueOf(ripple),
+                    background = interactiveBackground(
                         card(field, 18, outlined = false).apply {
-                            setStroke(px(if (isSelected) 2 else 1), if (isSelected) 0xFF0284C7.toInt() else edge)
+                            setStroke(px(if (isSelected) 2 else 1), if (isSelected) accent else edge)
                         },
-                        null
+                        radius = 18
                     )
                     setPadding(px(10), px(10), px(10), px(12))
                     addView(ThemePreviewCanvas(this@homeScreenPage, preset),
@@ -250,7 +244,7 @@ internal fun BridgeActivity.homeScreenPage() {
                         ellipsize = android.text.TextUtils.TruncateAt.END
                     }, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
                     if (isSelected) {
-                        titleRow.addView(text("Selected", 10, if (dark) 0xFF7DD3FC.toInt() else accent, bold = true).apply {
+                        titleRow.addView(text("Selected", 10, accentBright, bold = true).apply {
                             background = rounded(tint, 7)
                             setPadding(px(7), px(3), px(7), px(3))
                         })
@@ -364,17 +358,18 @@ internal fun BridgeActivity.homeScreenPage() {
             val pkg = component.substringBefore('/')
             val isDefault = active != null && (component == active || pkg == active.substringBefore('/'))
             val rowBg = if (isDefault) {
-                card(tint, 14, outlined = false).apply { setStroke(px(1), 0xFF0284C7.toInt()) }
+                card(tint, 14, outlined = false).apply { setStroke(px(1), accent) }
             } else {
-                card(if (dark) 0xFF131D2B.toInt() else 0xFFF8FAFC.toInt(), 14, outlined = true)
+                card(surfaceElevated, 14, outlined = true)
             }
             val itemRow = row().apply {
-                background = RippleDrawable(ColorStateList.valueOf(ripple), rowBg, null)
+                background = interactiveBackground(rowBg, radius = 14)
+                minimumHeight = px(56)
                 setPadding(px(14), px(12), px(12), px(12))
                 val textCol = column().apply {
                     addView(text(displayName(pkg), 15, bold = true))
                     addView(text(pkg, 11, muted).apply {
-                        typeface = Typeface.MONOSPACE
+                        typeface = monoTypeface
                         setPadding(0, px(2), 0, 0)
                         isSingleLine = true
                         ellipsize = android.text.TextUtils.TruncateAt.END
@@ -388,6 +383,7 @@ internal fun BridgeActivity.homeScreenPage() {
                 addView(pill)
                 isClickable = true
                 isFocusable = true
+                contentDescription = "${displayName(pkg)}, ${if (isDefault) "Active home launcher" else "Set as default home launcher"}"
                 setOnClickListener {
                     if (isDefault) {
                         report("${displayName(pkg)} is already the active TV launcher.")
@@ -398,7 +394,7 @@ internal fun BridgeActivity.homeScreenPage() {
                                     preferences.edit().putString("preferred-home-${tv.serial}", component).apply()
                                 }
                                 if (applied) {
-                                    report("Default Home switched to ${displayName(pkg)}.")
+                                    report("Default Home switched to ${displayName(pkg)}.", NoticeTone.SUCCESS)
                                     refresh()
                                 } else {
                                     report("Opened Home Settings on TV to confirm your launcher.")

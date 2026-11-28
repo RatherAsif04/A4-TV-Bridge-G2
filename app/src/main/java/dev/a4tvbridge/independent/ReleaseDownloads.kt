@@ -7,11 +7,16 @@ import java.net.URL
 import java.security.MessageDigest
 import org.json.JSONObject
 
-internal enum class ReleaseApp(val title: String, val repository: String, val packageName: String) {
-    SMART_TUBE("SmartTube", "yuliskov/SmartTube", "org.smarttube.stable"),
-    JELLYFIN("Jellyfin for Android TV", "jellyfin/jellyfin-androidtv", "org.jellyfin.androidtv"),
-    AERIAL("Aerial Views", "theothernt/AerialViews", "com.neilturner.aerialviews"),
-    PROJECTIVY("Projectivy Launcher", "spocky/miproja1", "com.spocky.projengmenu"),
+internal enum class ReleaseApp(
+    val title: String,
+    val repository: String,
+    val packageName: String,
+    val summary: String
+) {
+    SMART_TUBE("SmartTube", "yuliskov/SmartTube", "org.smarttube.stable", "Ad-free YouTube client built for TVs"),
+    JELLYFIN("Jellyfin for Android TV", "jellyfin/jellyfin-androidtv", "org.jellyfin.androidtv", "Open-source self-hosted media player"),
+    AERIAL("Aerial Views", "theothernt/AerialViews", "com.neilturner.aerialviews", "4K HDR Apple TV & nature screensaver"),
+    PROJECTIVY("Projectivy Launcher", "spocky/miproja1", "com.spocky.projengmenu", "Clean, customizable ad-free TV launcher"),
 }
 
 internal data class OfficialReleaseAsset(

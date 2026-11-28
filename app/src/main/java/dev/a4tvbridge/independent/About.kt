@@ -10,14 +10,17 @@ internal fun BridgeActivity.openAbout() {
     showSheet("About A4 TV Bridge", closeIcon = false) { popup, frame ->
         val body = column()
         val identity = row().apply {
-            background = card(if (dark) 0xFF131D2B.toInt() else surface, 16, outlined = true)
+            background = card(surfaceElevated, 16, outlined = true)
             setPadding(px(14), px(12), px(14), px(12))
         }
-        identity.addView(ImageView(this).apply { setImageResource(R.drawable.a4_mark) }, LinearLayout.LayoutParams(px(44), px(44)))
+        identity.addView(ImageView(this).apply {
+            setImageResource(R.drawable.a4_mark)
+            contentDescription = "A4 TV Bridge logo"
+        }, LinearLayout.LayoutParams(px(44), px(44)))
         val idCol = column().apply {
             addView(text("A4 TV Bridge", 17, bold = true))
             addView(text("v${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}", 12, muted).apply {
-                typeface = Typeface.MONOSPACE
+                typeface = monoTypeface
                 setPadding(0, px(2), 0, 0)
             })
         }
@@ -28,7 +31,7 @@ internal fun BridgeActivity.openAbout() {
             setLineSpacing(px(3).toFloat(), 1f)
         }, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(14) })
 
-        val details = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 18, stroke = 1).apply {
+        val details = outlinedCard(surfaceSubtle, radius = 18, stroke = 1).apply {
             setPadding(px(14), px(12), px(14), px(8))
         }
         details.addView(text("DEVELOPER & PROJECT", 10, dim, bold = true).apply {
@@ -57,7 +60,7 @@ internal fun BridgeActivity.openAbout() {
         details.addView(aboutLink("Report an issue") { openLink("$releaseRoot/issues") })
         body.addView(details, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
 
-        val noticesCard = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 16, stroke = 1).apply {
+        val noticesCard = outlinedCard(surfaceSubtle, radius = 16, stroke = 1).apply {
             setPadding(px(14), px(4), px(14), px(4))
             addView(aboutLink("Open-source notices", external = false) {
                 popup.dismiss()
@@ -94,7 +97,7 @@ private fun BridgeActivity.openNotices() {
             setPadding(0, 0, 0, px(10))
         })
         val files = assets.list("licenses").orEmpty()
-        val listCard = outlinedCard(if (dark) 0xFF0A0F16.toInt() else surface, radius = 16, stroke = 1).apply {
+        val listCard = outlinedCard(surfaceSubtle, radius = 16, stroke = 1).apply {
             setPadding(px(14), px(6), px(14), px(6))
         }
         val shown = noticeTitles.entries.filter { it.key in files }
@@ -120,8 +123,8 @@ private fun BridgeActivity.openNotices() {
 
 private fun BridgeActivity.aboutLink(label: String, external: Boolean = true, select: () -> Unit) = row().apply {
     background = RippleDrawable(ColorStateList.valueOf(ripple), null, card(radius = 10))
-    minimumHeight = px(46)
-    setPadding(px(4), px(7), px(4), px(7))
+    minimumHeight = px(48)
+    setPadding(px(4), px(8), px(4), px(8))
     addView(text(label, 15, accent, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
     val arrow = if (external) Glyph(this@aboutLink, Mark.EXTERNAL, muted) else text("›", 21, muted, bold = true)
     addView(arrow, LinearLayout.LayoutParams(px(19), px(22)))
