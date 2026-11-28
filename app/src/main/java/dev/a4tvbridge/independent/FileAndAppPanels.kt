@@ -227,6 +227,7 @@ internal fun BridgeActivity.apps() {
 }
 
 internal fun displayName(id: String): String {
+    if (id.equals(ReleaseApp.PROJECTIVY.packageName, ignoreCase = true)) return ReleaseApp.PROJECTIVY.title
     val segment = id.split('.').lastOrNull { it !in setOf("tv", "androidtv", "app", "leanback") }.orEmpty()
     val cleaned = segment.replace('_', ' ').replace('-', ' ').trim()
     return cleaned.ifBlank { id }.replaceFirstChar(Char::uppercase)
@@ -380,14 +381,7 @@ internal fun BridgeActivity.installPage() {
         val item = row().apply { minimumHeight = px(60) }
         item.addView(text(release.title, 16, bold = true), LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f))
         item.addView(button("Install", description = "Install ${release.title}") {
-            confirm("Install ${release.title}?", "Download the verified release and send it to the TV.") {
-                tvTask({
-                    val abis = command("getprop ro.product.cpu.abilist").text
-                        .split(',').map(String::trim).filter(String::isNotEmpty)
-                    val file = downloadOfficialRelease(this@installPage, release, abis)
-                    try { install(listOf(file)) } finally { file.delete() }
-                }) { report("Installed ${release.title}.") }
-            }
+            installOfficialRelease(release) { report("Installed ${release.title}.") }
         }.apply {
             background = android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(ripple), card(tint, 24, false), null
@@ -400,6 +394,24 @@ internal fun BridgeActivity.installPage() {
         catalog.addView(item, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
     }
     content.addView(catalog, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+}
+
+internal fun BridgeActivity.installOfficialRelease(
+    release: ReleaseApp,
+    actionVerb: String = "Install",
+    onInstalled: () -> Unit
+) {
+    confirm(
+        "$actionVerb ${release.title}?",
+        "Download the latest verified release from ${release.repository} and send it to the TV."
+    ) {
+        tvTask({
+            val abis = command("getprop ro.product.cpu.abilist").text
+                .split(',').map(String::trim).filter(String::isNotEmpty)
+            val file = downloadOfficialRelease(this@installOfficialRelease, release, abis)
+            try { install(listOf(file)) } finally { file.delete() }
+        }) { onInstalled() }
+    }
 }
 
 internal fun BridgeActivity.stage(uri: Uri): Pair<String, File> {

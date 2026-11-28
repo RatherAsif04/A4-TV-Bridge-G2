@@ -21,6 +21,7 @@ internal object AppBrandRegistry {
         "videolan.vlc" to AppBadgeStyle("VL", 0xFFEA580C.toInt()),
         "stremio" to AppBadgeStyle("SM", 0xFF4F46E5.toInt()),
         "aerialviews" to AppBadgeStyle("AV", 0xFF0F766E.toInt()),
+        "projengmenu" to AppBadgeStyle("PL", 0xFF0284C7.toInt()),
         "chrome" to AppBadgeStyle("CH", 0xFF2563EB.toInt()),
         "firefox" to AppBadgeStyle("FF", 0xFFEA580C.toInt()),
         "vending" to AppBadgeStyle("GP", 0xFF059669.toInt()),

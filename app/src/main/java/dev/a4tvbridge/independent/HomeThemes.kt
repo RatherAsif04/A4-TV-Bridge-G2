@@ -167,7 +167,53 @@ internal fun BridgeActivity.homeScreenPage() {
     val launcherList = column()
     launcherList.addView(text("Reading installed home apps…", 13, muted))
     launchersCard.addView(launcherList)
-    content.addView(launchersCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(16) })
+    content.addView(launchersCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(12) })
+
+    // 1b. RECOMMENDED TV LAUNCHER (Projectivy Launcher latest official GitHub release)
+    var projectivyInstalled = false
+    val projectivySubtitle = text("Latest official GitHub release · ${ReleaseApp.PROJECTIVY.repository}", 11, muted).apply {
+        setPadding(0, px(2), 0, 0)
+        isSingleLine = true
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+    val projectivyBtn = button("Install", description = "Install Projectivy Launcher") {
+        val verb = if (projectivyInstalled) "Update" else "Install"
+        installOfficialRelease(ReleaseApp.PROJECTIVY, actionVerb = verb) {
+            report(
+                if (projectivyInstalled) "Projectivy Launcher updated to the latest release."
+                else "Projectivy Launcher installed. Tap Set under Default Home Launcher to activate it."
+            )
+            refresh()
+        }
+    }.apply {
+        background = RippleDrawable(
+            ColorStateList.valueOf(ripple), card(tint, 24, false), null
+        )
+        setTextColor(accent)
+        textSize = 14f
+        minimumHeight = px(40)
+        minHeight = px(40)
+    }
+    val projectivyCard = outlinedCard(field, radius = 20, stroke = 1).apply {
+        addView(text("RECOMMENDED TV LAUNCHER", 11, dim, bold = true).apply {
+            letterSpacing = 0.08f
+            setPadding(0, 0, 0, px(10))
+        })
+        val projectivyRow = row().apply {
+            addView(appBadge(ReleaseApp.PROJECTIVY.packageName), LinearLayout.LayoutParams(px(36), px(36)))
+            val copy = column().apply {
+                addView(text(ReleaseApp.PROJECTIVY.title, 15, bold = true))
+                addView(projectivySubtitle)
+            }
+            addView(copy, LinearLayout.LayoutParams(0, BridgeActivity.WRAP, 1f).apply {
+                marginStart = px(12)
+                marginEnd = px(10)
+            })
+            addView(projectivyBtn, LinearLayout.LayoutParams(px(92), px(40)))
+        }
+        addView(projectivyRow)
+    }
+    content.addView(projectivyCard, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(16) })
 
     // 2. CLEAN-ROOM 1080P THEME STUDIO (2x2 visual grid matching 06-home-themes-light.png)
     content.addView(sectionLabel("Clean-room 1080p theme studio"),
@@ -301,6 +347,14 @@ internal fun BridgeActivity.homeScreenPage() {
     // Populate installed TV launchers with Active / Set pill buttons
     tvTask({ homeOptions() to activeHomeActivity() }) { (options, active) ->
         if (content !== owner) return@tvTask
+        projectivyInstalled = options.any { it.substringBefore('/').equals(ReleaseApp.PROJECTIVY.packageName, ignoreCase = true) }
+        projectivyBtn.text = if (projectivyInstalled) "Update" else "Install"
+        projectivyBtn.contentDescription = "${projectivyBtn.text} Projectivy Launcher"
+        projectivySubtitle.text = if (projectivyInstalled) {
+            "Installed · Tap Update for latest release (${ReleaseApp.PROJECTIVY.repository})"
+        } else {
+            "Latest official GitHub release · ${ReleaseApp.PROJECTIVY.repository}"
+        }
         launcherList.removeAllViews()
         if (options.isEmpty()) {
             launcherList.addView(text("No HOME activities were reported by this TV.", 13, muted))

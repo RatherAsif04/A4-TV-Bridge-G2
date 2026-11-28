@@ -259,4 +259,32 @@ class ParsersTest {
         ))
         assertEquals("A4-TV-Bridge-1.4.2-release.apk", picked?.name)
     }
+
+    @Test fun selectsOfficialProjectivyLauncherReleaseAndFormatsBranding() {
+        assertEquals("spocky/miproja1", ReleaseApp.PROJECTIVY.repository)
+        assertEquals("com.spocky.projengmenu", ReleaseApp.PROJECTIVY.packageName)
+        assertEquals("Projectivy Launcher", displayName("com.spocky.projengmenu"))
+        assertEquals("PL", AppBrandRegistry.resolve("com.spocky.projengmenu").monogram)
+
+        val base = "https://github.com/spocky/miproja1/releases/download/4.63"
+        val xdaRelease = pickOfficialReleaseAsset(
+            ReleaseApp.PROJECTIVY,
+            listOf(
+                OfficialReleaseAsset("ProjectivyLauncher-4.63-c463-debug.apk", "$base/ProjectivyLauncher-4.63-c463-debug.apk", 12_000_000),
+                OfficialReleaseAsset("ProjectivyLauncher-4.63-c463-xda-release.apk", "$base/ProjectivyLauncher-4.63-c463-xda-release.apk", 11_500_000)
+            ),
+            listOf("arm64-v8a", "armeabi-v7a")
+        )
+        assertEquals("ProjectivyLauncher-4.63-c463-xda-release.apk", xdaRelease?.name)
+
+        val githubPreferred = pickOfficialReleaseAsset(
+            ReleaseApp.PROJECTIVY,
+            listOf(
+                OfficialReleaseAsset("ProjectivyLauncher-4.68-c468-xda-release.apk", "$base/ProjectivyLauncher-4.68-c468-xda-release.apk", 11_500_000),
+                OfficialReleaseAsset("ProjectivyLauncher-4.68-c468-github-release.apk", "$base/ProjectivyLauncher-4.68-c468-github-release.apk", 11_600_000)
+            ),
+            listOf("arm64-v8a")
+        )
+        assertEquals("ProjectivyLauncher-4.68-c468-github-release.apk", githubPreferred?.name)
+    }
 }

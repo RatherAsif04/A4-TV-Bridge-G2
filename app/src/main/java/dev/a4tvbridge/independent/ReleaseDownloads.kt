@@ -11,6 +11,44 @@ internal enum class ReleaseApp(val title: String, val repository: String, val pa
     SMART_TUBE("SmartTube", "yuliskov/SmartTube", "org.smarttube.stable"),
     JELLYFIN("Jellyfin for Android TV", "jellyfin/jellyfin-androidtv", "org.jellyfin.androidtv"),
     AERIAL("Aerial Views", "theothernt/AerialViews", "com.neilturner.aerialviews"),
+    PROJECTIVY("Projectivy Launcher", "spocky/miproja1", "com.spocky.projengmenu"),
+}
+
+internal data class OfficialReleaseAsset(
+    val name: String,
+    val downloadUrl: String,
+    val size: Long,
+    val digest: String = ""
+)
+
+internal fun pickOfficialReleaseAsset(
+    app: ReleaseApp,
+    files: List<OfficialReleaseAsset>,
+    abis: List<String> = emptyList()
+): OfficialReleaseAsset? = when (app) {
+    ReleaseApp.SMART_TUBE -> (abis + "universal").firstNotNullOfOrNull { abi ->
+        files.firstOrNull { it.name.startsWith("SmartTube_stable_", true) && it.name.endsWith("_$abi.apk", true) }
+    }
+    ReleaseApp.JELLYFIN -> files.firstOrNull {
+        it.name.startsWith("jellyfin-androidtv-") && it.name.endsWith("-release.apk")
+    }
+    ReleaseApp.AERIAL -> files.firstOrNull { it.name.startsWith("aerial-views-") }
+    ReleaseApp.PROJECTIVY -> {
+        val stableApks = files.filter { asset ->
+            val lower = asset.name.lowercase()
+            !lower.contains("debug") && !lower.contains("unsigned")
+        }
+        val projectivyApks = stableApks.filter { it.name.startsWith("ProjectivyLauncher", true) }
+        val candidates = projectivyApks.ifEmpty { stableApks }
+        (abis + "universal").firstNotNullOfOrNull { abi ->
+            candidates.firstOrNull { it.name.contains(abi, true) && it.name.endsWith("-release.apk", true) }
+        }
+            ?: candidates.firstOrNull { it.name.endsWith("-github-release.apk", true) }
+            ?: candidates.firstOrNull { it.name.endsWith("-xda-release.apk", true) }
+            ?: candidates.firstOrNull { it.name.endsWith("-release.apk", true) }
+            ?: projectivyApks.firstOrNull()
+            ?: stableApks.singleOrNull()
+    }
 }
 
 internal fun downloadOfficialRelease(context: Context, app: ReleaseApp, abis: List<String>): File {
@@ -29,27 +67,25 @@ internal fun downloadOfficialRelease(context: Context, app: ReleaseApp, abis: Li
     }
     check(!index.optBoolean("draft") && !index.optBoolean("prerelease")) { "No stable release is available." }
     val assets = index.getJSONArray("assets")
-    val files = (0 until assets.length()).map { assets.getJSONObject(it) }.filter { file ->
+    val files = (0 until assets.length()).mapNotNull { i ->
+        val file = assets.getJSONObject(i)
         val name = file.optString("name")
         val link = file.optString("browser_download_url")
-        name.matches(Regex("[A-Za-z0-9_.-]+\\.apk", RegexOption.IGNORE_CASE)) &&
+        val size = file.optLong("size")
+        val digest = if (file.isNull("digest")) "" else file.optString("digest")
+        val valid = name.matches(Regex("[A-Za-z0-9_.-]+\\.apk", RegexOption.IGNORE_CASE)) &&
             link.startsWith("https://github.com/${app.repository}/releases/download/") && link.endsWith("/$name") &&
-            file.optLong("size") in 1..(200L * 1024 * 1024) &&
-            (file.optString("digest").isBlank() || file.optString("digest").matches(Regex("sha256:[a-fA-F0-9]{64}")))
+            size in 1..(200L * 1024 * 1024) &&
+            (digest.isBlank() || digest.matches(Regex("sha256:[a-fA-F0-9]{64}")))
+        if (valid) OfficialReleaseAsset(name, link, size, digest) else null
     }
-    val chosen = when (app) {
-        ReleaseApp.SMART_TUBE -> (abis + "universal").firstNotNullOfOrNull { abi ->
-            files.firstOrNull { it.getString("name").startsWith("SmartTube_stable_", true) && it.getString("name").endsWith("_$abi.apk") }
-        }
-        ReleaseApp.JELLYFIN -> files.firstOrNull { it.getString("name").startsWith("jellyfin-androidtv-") && it.getString("name").endsWith("-release.apk") }
-        ReleaseApp.AERIAL -> files.firstOrNull { it.getString("name").startsWith("aerial-views-") }
-    } ?: error("The release has no verified APK for this TV.")
+    val chosen = pickOfficialReleaseAsset(app, files, abis) ?: error("The release has no verified APK for this TV.")
     val hash = MessageDigest.getInstance("SHA-256")
-    val limit = chosen.getLong("size")
+    val limit = chosen.size
     var bytes = 0L
     val file = File.createTempFile("verified-", ".apk", context.cacheDir)
     try {
-        get(URL(chosen.getString("browser_download_url")), setOf("github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")) { response ->
+        get(URL(chosen.downloadUrl), setOf("github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")) { response ->
             file.outputStream().use { output ->
                 response.inputStream.use { input ->
                     val buffer = ByteArray(32_768)
@@ -65,7 +101,7 @@ internal fun downloadOfficialRelease(context: Context, app: ReleaseApp, abis: Li
             }
         }
         val digest = hash.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
-        val publishedDigest = chosen.optString("digest")
+        val publishedDigest = chosen.digest
         check(bytes == limit && (publishedDigest.isBlank() || "sha256:$digest".equals(publishedDigest, ignoreCase = true))) {
             "The release checksum did not match."
         }
