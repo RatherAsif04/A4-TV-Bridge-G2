@@ -306,4 +306,22 @@ class ParsersTest {
         assertEquals(4, activeConnectionStep(ConnectionPhase.CONNECTED))
         assertEquals(2, activeConnectionStep(ConnectionPhase.ERROR))
     }
+
+    @Test fun buildsSafetyGuidanceForBuiltInAndUserInstalledApps() {
+        val voice = describeAppForSheet(InstalledPackage("com.google.android.speech.pumpkin", system = true, enabled = true))
+        assertFalse(voice.riskyUninstall)
+        assertTrue(voice.summary.contains("voice", ignoreCase = true))
+        assertTrue(voice.warning.contains("Think first", ignoreCase = true))
+
+        val kodi = describeAppForSheet(InstalledPackage("org.xbmc.kodi", system = false, enabled = true))
+        assertTrue(kodi.riskyUninstall)
+        assertTrue(kodi.summary.contains("permanent", ignoreCase = true))
+        assertTrue(kodi.warning.contains("You installed this app", ignoreCase = true))
+
+        val noted = describeAppForSheet(
+            InstalledPackage("com.vendor.demo", system = true, enabled = true),
+            catalogNote = "Store demo overlay"
+        )
+        assertEquals("Store demo overlay.", noted.summary)
+    }
 }

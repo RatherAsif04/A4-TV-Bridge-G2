@@ -144,7 +144,29 @@ private fun BridgeActivity.fileOptions(current: String, item: RemoteFile) {
 
 internal fun BridgeActivity.apps() {
     heading("Apps")
-    val query = input("Search apps")
+    content.addView(text("Tap an app to see what turning it off would change. Restore can bring back preinstalled apps removed for this TV.", 13, muted).apply {
+        setLineSpacing(px(3).toFloat(), 1f)
+        setPadding(0, 0, 0, px(10))
+    })
+    val quickLinks = row()
+    quickLinks.addView(textButton("Install Apps") { show(Panel.INSTALL) }.apply {
+        textSize = 14f
+        setPadding(0, px(4), px(14), px(4))
+    })
+    quickLinks.addView(textButton("Refresh") { refresh() }.apply {
+        textSize = 14f
+        setPadding(px(4), px(4), px(8), px(4))
+    })
+    content.addView(quickLinks, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
+
+    val query = input("Search apps").apply {
+        setSingleLine()
+        background = card(field, 14, outlined = true)
+        setPadding(px(14), px(12), px(14), px(12))
+    }
+    val countLabel = text("", 14, ink, bold = true).apply {
+        setPadding(0, px(12), 0, px(10))
+    }
     val list = column()
     val modes = arrayOf("Installed", "Built-in", "Running")
     var activeMode = 0
@@ -154,15 +176,20 @@ internal fun BridgeActivity.apps() {
         val pattern = query.text.toString().trim()
         list.removeAllViews()
         val matching = installedApps.asSequence().filter { item ->
-            item.id.contains(pattern, true) && when (activeMode) {
+            (item.id.contains(pattern, true) || displayName(item.id).contains(pattern, true)) && when (activeMode) {
                 0 -> !item.system
                 1 -> item.system
                 else -> item.id in running
             }
         }.toList()
+        countLabel.text = when (activeMode) {
+            0 -> "Apps you installed (${matching.size})"
+            1 -> "Built-in TV apps (${matching.size})"
+            else -> "Running apps (${matching.size})"
+        }
         if (matching.isEmpty()) list.addView(text("No matching apps.", 15, muted))
         for (app in matching) {
-            val status = if (!app.enabled) "Disabled" else if (app.id in running) "Running" else ""
+            val status = if (!app.enabled) "Off" else if (app.id in running) "Running" else ""
             val nickname = displayName(app.id)
             val detail = listOf(app.id, status).filter(String::isNotEmpty).joinToString(" · ")
             val entry = row().apply {
@@ -210,7 +237,8 @@ internal fun BridgeActivity.apps() {
     tabButtons.forEach { tabStrip.addView(it, LinearLayout.LayoutParams(0, px(42), 1f)) }
     styleTabs()
     content.addView(tabStrip, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP).apply { bottomMargin = px(10) })
-    content.addView(query)
+    content.addView(query, LinearLayout.LayoutParams(BridgeActivity.MATCH, BridgeActivity.WRAP))
+    content.addView(countLabel)
     content.addView(list)
     val owner = content
     query.addTextChangedListener(object : TextWatcher {
@@ -233,68 +261,7 @@ internal fun displayName(id: String): String {
     return cleaned.ifBlank { id }.replaceFirstChar(Char::uppercase)
 }
 
-private fun BridgeActivity.packageOptions(item: InstalledPackage) {
-    val id = packageId(item.id)
-    val tv = connection ?: return
-    val pinned = pinnedPackages(tv).contains(id)
-    choose(item.id, listOf(
-        (if (pinned) "Remove shortcut" else "Add shortcut") to {
-            setPinned(tv, id, !pinned)
-            report(if (pinned) "Shortcut removed." else "Shortcut added to Remote.")
-        },
-        "Launch on TV" to { tvTask({ openApp(id) }) { report("Opened on the TV.") } },
-        "Permissions" to { permissionsForPackage(id) },
-        "Export APK" to { exportApks(id) },
-        "Force stop" to { tvTask({ command("am force-stop --user 0 $id") }) { commandStatus(it, "Stopped.") } },
-        "Clear app data" to {
-            confirm("Clear app data?", "This resets the app’s settings and removes its stored data.") {
-                tvTask({ command("pm clear --user 0 $id") }) { commandStatus(it, "App data cleared.") }
-            }
-        },
-        (if (item.enabled) "Disable" else "Enable") to {
-            confirm(if (item.enabled) "Disable this app?" else "Enable this app?", id) {
-                tvTask({
-                    if (item.enabled) {
-                        check(!protectForCleanup(id)) { "This app is needed by the TV." }
-                        rememberDisabled(this, id)
-                    } else {
-                        rememberEnabled(this, id)
-                    }
-                }) { refresh() }
-            }
-        },
-        (if (item.system) "Uninstall for this TV" else "Uninstall for good") to {
-            val note = if (item.system) "Removes the built-in app for the current Android user. Restore can reinstall it when Android still has the system copy."
-                else "This removes the installed app and its data. You can reinstall it from its original source."
-            confirm("Uninstall app?", note) {
-                tvTask({
-                    check(!protectForCleanup(id)) { "This app is needed by the TV." }
-                    val result = command("pm uninstall --user 0 $id")
-                    if (result.status == 0 && result.text.lineSequence().any { it.trim() == "Success" } && item.system) {
-                        recordSystemRemoval(this, id, removed = true)
-                    }
-                    result
-                }) { result ->
-                    if (result.status == 0 && result.text.lineSequence().any { it.trim() == "Success" }) refresh()
-                    else report(result.text.ifBlank { "The TV refused to uninstall the app." })
-                }
-            }
-        },
-        "Open app settings" to {
-            tvTask({ command("am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:$id") }) {
-                commandStatus(it, "Opened on TV.")
-            }
-        },
-        "Open app store on TV" to {
-            tvTask({ command("am start -a android.intent.action.VIEW -d 'market://details?id=$id'") }) {
-                commandStatus(it, "Opened on TV.")
-            }
-        },
-        "Open app store on this device" to { openLink("https://play.google.com/store/apps/details?id=$id") },
-    ))
-}
-
-private fun BridgeActivity.permissionsForPackage(id: String) {
+internal fun BridgeActivity.permissionsForPackage(id: String) {
     val record = Regex("""^\s+([A-Za-z0-9_.]+): granted=(true|false).*""")
     tvTask({
         val dump = command("dumpsys package $id")
@@ -315,7 +282,7 @@ private fun BridgeActivity.permissionsForPackage(id: String) {
     }
 }
 
-private fun BridgeActivity.exportApks(id: String) {
+internal fun BridgeActivity.exportApks(id: String) {
     tvTask({
         val parts = mutableListOf<Pair<String, File>>()
         var bundle: File? = null
